@@ -1,0 +1,13 @@
+name = "poultrysuite-api"
+main = "worker/index.js"
+compatibility_date = "2024-12-01"
+
+[vars]
+CORS_ORIGIN = "https://poultrysuite.agorox.africa"
+JWT_SECRET = "CHANGE-THIS-TO-A-LONG-RANDOM-SECRET"
+PAYSTACK_SECRET_KEY = ""
+
+[[d1_databases]]
+binding = "DB"
+database_name = "poultrysuite-db"
+database_id = ""  # Fill after running: wrangler d1 create poultrysuite-db
