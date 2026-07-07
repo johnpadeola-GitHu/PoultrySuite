@@ -344,11 +344,59 @@ function corsResponse(env, request) {
 
 // ── Auth ─────────────────────────────────────────────────────────────
 
-async function hashPassword(password, salt) {
+// ── Password hashing ────────────────────────────────────────────────
+// Two algorithms coexist here on purpose, to allow a SAFE, gradual
+// migration with zero forced resets and zero lockout risk:
+//
+//   legacyHashPassword() — the original single-round SHA-256(password+salt).
+//     Weak (fast to brute-force if the DB is ever exfiltrated), kept ONLY
+//     to verify accounts that haven't logged in since this migration.
+//
+//   pbkdf2Hash() — PBKDF2-HMAC-SHA256, 210,000 iterations (OWASP's 2023
+//     minimum recommendation for this algorithm). Used for every NEW hash
+//     from now on — new sign-ups, password resets, and any existing
+//     account the moment it next signs in successfully.
+//
+// verifyPassword() checks which format a stored hash is in and verifies
+// against the matching algorithm. authSignIn() uses this, and on a
+// successful login against an old-format hash, transparently re-hashes
+// the password with PBKDF2 and updates the stored value — the user
+// notices nothing, but is upgraded to the strong algorithm on their next
+// login. No bulk migration, no forced resets, no lockout risk.
+
+async function legacyHashPassword(password, salt) {
   const enc = new TextEncoder();
   const keyData = enc.encode(password + salt);
   const hash = await crypto.subtle.digest('SHA-256', keyData);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+const PBKDF2_ITERATIONS = 210000;
+
+async function pbkdf2Hash(password, salt, iterations = PBKDF2_ITERATIONS) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), { name: 'PBKDF2' }, false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations, hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  const hex = Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return `pbkdf2$${iterations}$${hex}`;
+}
+
+// Verify a password against whichever format is stored. Returns
+// { valid, needsRehash } — needsRehash is true for any legacy hash, or a
+// PBKDF2 hash stored with a lower iteration count than the current default
+// (lets a future bump in PBKDF2_ITERATIONS also upgrade gradually).
+async function verifyPassword(password, salt, storedHash) {
+  if (storedHash && storedHash.startsWith('pbkdf2$')) {
+    const parts = storedHash.split('$');
+    const iterations = parseInt(parts[1], 10) || PBKDF2_ITERATIONS;
+    const computed = await pbkdf2Hash(password, salt, iterations);
+    return { valid: computed === storedHash, needsRehash: iterations < PBKDF2_ITERATIONS };
+  }
+  const computed = await legacyHashPassword(password, salt);
+  return { valid: computed === storedHash, needsRehash: true };
 }
 
 async function createJWT(payload, secret) {
@@ -389,7 +437,7 @@ async function authSignUp(env, { email, password }) {
   if (existing) return { error: 'User already exists' };
   const id = uid();
   const salt = uid();
-  const hash = await hashPassword(password, salt);
+  const hash = await pbkdf2Hash(password, salt);
   await env.DB.prepare('INSERT INTO users (id, email, password_hash, salt) VALUES (?, ?, ?, ?)').bind(id, email, hash, salt).run();
 
   // Auto-provision: every new user gets their own farm as owner, matching
@@ -426,8 +474,8 @@ async function authSignIn(env, { email, password }) {
     }
   }
 
-  const hash = await hashPassword(password, user.salt);
-  if (hash !== user.password_hash) {
+  const { valid, needsRehash } = await verifyPassword(password, user.salt, user.password_hash);
+  if (!valid) {
     const attempts = (user.failed_attempts || 0) + 1;
     if (attempts >= MAX_FAILED_ATTEMPTS) {
       const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60000).toISOString();
@@ -438,8 +486,16 @@ async function authSignIn(env, { email, password }) {
     return { error: 'Invalid credentials' };
   }
 
-  // Successful login clears any prior failure count/lock.
-  await env.DB.prepare("UPDATE users SET last_sign_in = datetime('now'), failed_attempts = 0, locked_until = NULL WHERE id = ?").bind(user.id).run();
+  // Successful login clears any prior failure count/lock. If the stored
+  // hash was in the old weak format (or an outdated PBKDF2 iteration
+  // count), transparently upgrade it now — the user notices nothing, but
+  // is silently migrated to the current strong algorithm.
+  if (needsRehash) {
+    const newHash = await pbkdf2Hash(password, user.salt);
+    await env.DB.prepare("UPDATE users SET password_hash = ?, last_sign_in = datetime('now'), failed_attempts = 0, locked_until = NULL WHERE id = ?").bind(newHash, user.id).run();
+  } else {
+    await env.DB.prepare("UPDATE users SET last_sign_in = datetime('now'), failed_attempts = 0, locked_until = NULL WHERE id = ?").bind(user.id).run();
+  }
   const token = await createJWT({ sub: user.id, email: user.email }, env.JWT_SECRET);
   return { user: { id: user.id, email: user.email }, token };
 }
@@ -460,7 +516,7 @@ async function authUpdatePassword(env, { token, password }) {
   const user = await env.DB.prepare("SELECT id FROM users WHERE reset_token = ? AND reset_expires > datetime('now')").bind(token).first();
   if (!user) return { error: 'Invalid or expired reset token' };
   const salt = uid();
-  const hash = await hashPassword(password, salt);
+  const hash = await pbkdf2Hash(password, salt);
   await env.DB.prepare('UPDATE users SET password_hash = ?, salt = ?, reset_token = NULL, reset_expires = NULL WHERE id = ?').bind(hash, salt, user.id).run();
   return { ok: true };
 }
