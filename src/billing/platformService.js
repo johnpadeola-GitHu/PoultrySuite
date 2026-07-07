@@ -31,10 +31,7 @@ export async function listTenants() {
 // All subscriptions across every farm (joined with plan + farm name).
 export async function listSubscriptions() {
   requireSupabase();
-  const { data, error } = await supabase
-    .from('subscriptions')
-    .select('*, farm:farms(name), plan:plans(name, tier, annual_price_minor)')
-    .order('period_end', { ascending: true });
+  const { data, error } = await supabase.rpc('platform_list_subscriptions');
   if (error) return { subscriptions: [], error: friendly(error) };
   return { subscriptions: data || [], error: null };
 }

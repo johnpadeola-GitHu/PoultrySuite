@@ -226,6 +226,7 @@ const rpcMap = {
   'is_platform_admin': { method: 'GET', path: '/api/platform/is-admin', extract: r => r.isAdmin },
   'platform_overview_stats': { method: 'GET', path: '/api/platform/stats', extract: r => r.stats },
   'platform_list_tenants': { method: 'GET', path: '/api/platform/tenants', extract: r => r.data },
+  'platform_list_subscriptions': { method: 'GET', path: '/api/platform/subscriptions', extract: r => r.data },
   'register_own_device': { method: 'POST', path: '/api/devices/register-own' },
   'redeem_pairing_code': { method: 'POST', path: '/api/devices/redeem-pairing-code' },
   'create_pairing_code': { method: 'POST', path: '/api/devices/create-pairing-code' },
