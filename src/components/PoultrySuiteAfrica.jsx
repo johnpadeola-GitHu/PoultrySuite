@@ -6156,7 +6156,9 @@ function HChickGrading({state,dispatch}){
   };
   return(
     <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Chick Sexing & Grading</span><Btn size="sm" onClick={()=>setShowForm(true)} disabled={availHatches.length===0}>+ Log Grading</Btn></div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Chick Sexing & Grading</span><Btn size="sm" onClick={()=>setShowForm(true)}>+ Log Grading</Btn></div>
+      {hatchRecords.length===0&&<Notice type="info" message="No hatch records exist yet — log a hatch in Hatch Output first, then come back here to grade it."/>}
+      {hatchRecords.length>0&&availHatches.length===0&&<Notice type="info" message="Every hatch record already has a grading log. Once you record a new hatch, it will appear here to grade."/>}
       {chickGrading.length===0?<HEmpty icon="temp" title="No grading records yet" sub="Log sexing and quality grading after each hatch"/>:
         chickGrading.map(g=>{
           const totalSexed=g.males+g.females;
@@ -6189,6 +6191,7 @@ function HChickGrading({state,dispatch}){
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Males" type="number" value={f.males} onChange={v=>fld('males',v)}/><Inp label="Females" type="number" value={f.females} onChange={v=>fld('females',v)}/><Inp label="Unsexed" type="number" value={f.unsexed} onChange={v=>fld('unsexed',v)}/></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Grade A" type="number" value={f.gradeA} onChange={v=>fld('gradeA',v)}/><Inp label="Grade B" type="number" value={f.gradeB} onChange={v=>fld('gradeB',v)}/><Inp label="Reject" type="number" value={f.reject} onChange={v=>fld('reject',v)}/></div>
           <Inp label="Notes" value={f.notes} onChange={v=>fld('notes',v)}/>
+          {availHatches.length===0&&<Notice type="warn" message="No un-graded hatch records available right now."/>}
           <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.hatchRecordId||!f.totalGraded}>Save Grading</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
         </div>
       </HModal>)}
@@ -6635,7 +6638,7 @@ function HVaccineProc({state,dispatch}){
 const HS_SEED={
   eggBatches:[{id:'HEB001',batchNo:'HEB-2025-001',sourceFarm:'Crown Breeder Farm',breed:'Ross 308',dateReceived:'2025-01-20',totalQty:15000,rejected:450,graded:14550,status:'Hatched',breederFlockId:'BRD001',notes:''},{id:'HEB002',batchNo:'HEB-2025-002',sourceFarm:'Gold Breeder Farm',breed:'Isa Brown',dateReceived:'2025-01-25',totalQty:12000,rejected:360,graded:11640,status:'Incubating',breederFlockId:'BRD002',notes:''}],
   breederFlocks:[{id:'BRD001',name:'Crown Flock A1',breed:'Ross 308',sourceFarm:'Crown Breeder Farm',ageWeeks:38,henCount:8500,roosterCount:850,status:'Active',notes:'Primary Ross 308 breeder line'},{id:'BRD002',name:'Gold Flock B2',breed:'Isa Brown',sourceFarm:'Gold Breeder Farm',ageWeeks:42,henCount:6000,roosterCount:600,status:'Active',notes:''}],
-  chickGrading:[{id:'GRD001',hatchRecordId:'HCH001',date:'2025-02-10',totalGraded:12800,males:6300,females:6100,unsexed:400,gradeA:11500,gradeB:1000,reject:300,notes:'Standard sexing accuracy ~95%'}],
+  chickGrading:[],
   incubationRecords:[{id:'INC001',batchId:'HEB001',machineId:'SET-A',setDate:'2025-01-20',expectedHatch:'2025-02-10',temperature:37.8,humidity:58,status:'Complete'},{id:'INC002',batchId:'HEB002',machineId:'SET-B',setDate:'2025-01-25',expectedHatch:'2025-02-15',temperature:37.7,humidity:57,status:'Active'}],
   candlingRecords:[{id:'CND001',batchId:'HEB001',date:'2025-01-27',totalCandled:14550,fertile:13200,infertile:900,earlyDead:280,lateDead:170,notes:'Good fertility'}],
   hatchRecords:[{id:'HCH001',batchId:'HEB001',hatchDate:'2025-02-10',eggsSet:14550,totalHatched:12800,culls:320,defects:140,sexed:false,males:0,females:0,notes:''}],
