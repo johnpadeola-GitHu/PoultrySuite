@@ -88,16 +88,20 @@ export default {
       if (path === '/auth/me' && method === 'GET')
         return json({ user }, corsHeaders);
 
-      // Profiles
+      // Profiles — a user may only read their own profile.
       if (path.startsWith('/api/profiles/') && method === 'GET') {
         const id = path.split('/')[3];
+        if (id !== user.id) return json({ error: 'Forbidden' }, corsHeaders, 403);
         const row = await env.DB.prepare('SELECT * FROM profiles WHERE id = ?').bind(id).first();
         return json({ data: row }, corsHeaders);
       }
 
-      // Farm members
+      // Farm members — always the CALLER's own memberships. The old
+      // version trusted a user_id query param, letting any signed-in user
+      // look up any other user's farm memberships; that param is no longer
+      // read at all.
       if (path === '/api/farm-members' && method === 'GET') {
-        const userId = url.searchParams.get('user_id');
+        const userId = user.id;
         const rows = await env.DB.prepare(
           `SELECT fm.role, f.id as f_id, f.name as f_name, f.created_at as f_created_at
            FROM farm_members fm JOIN farms f ON f.id = fm.farm_id
@@ -125,6 +129,7 @@ export default {
         return json(await farmDeviceUsage(env, user), corsHeaders);
       if (path === '/api/devices' && method === 'GET') {
         const farmId = url.searchParams.get('farm_id');
+        if (!await verifyFarmAccess(env, user.id, farmId)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         const rows = await env.DB.prepare(
           'SELECT id, name, platform, last_seen_at, revoked, created_at FROM devices WHERE farm_id = ? AND revoked = 0 ORDER BY created_at'
         ).bind(farmId).all();
@@ -132,6 +137,8 @@ export default {
       }
       if (path.match(/^\/api\/devices\/[^/]+\/revoke$/) && method === 'PUT') {
         const id = path.split('/')[3];
+        const device = await env.DB.prepare('SELECT farm_id FROM devices WHERE id = ?').bind(id).first();
+        if (!device || !await verifyFarmAccess(env, user.id, device.farm_id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         await env.DB.prepare('UPDATE devices SET revoked = 1 WHERE id = ?').bind(id).run();
         return json({ ok: true }, corsHeaders);
       }
@@ -139,6 +146,7 @@ export default {
       // Batches
       if (path === '/api/batches' && method === 'GET') {
         const farmId = url.searchParams.get('farm_id');
+        if (!await verifyFarmAccess(env, user.id, farmId)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         const rows = await env.DB.prepare(
           'SELECT * FROM batches WHERE farm_id = ? AND deleted = 0 ORDER BY start_date'
         ).bind(farmId).all();
@@ -146,6 +154,7 @@ export default {
       }
       if (path === '/api/batches' && method === 'PUT') {
         const row = await request.json();
+        if (!await verifyFarmAccess(env, user.id, row.farm_id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         await env.DB.prepare(
           `INSERT INTO batches (id,farm_id,house_id,name,breed,source,type,initial_count,current_count,start_date,status,notes,deleted,updated_at)
            VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,datetime('now'))
@@ -156,14 +165,17 @@ export default {
       if (path.startsWith('/api/batches/') && method === 'DELETE') {
         const id = path.split('/')[3];
         const farmId = url.searchParams.get('farm_id');
+        if (!await verifyFarmAccess(env, user.id, farmId)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         await env.DB.prepare("UPDATE batches SET deleted = 1, updated_at = datetime('now') WHERE farm_id = ? AND id = ?").bind(farmId, id).run();
         return json({ ok: true }, corsHeaders);
       }
 
-      // Farm records (generic collection sync)
+      // Farm records (generic collection sync) — used by nearly every
+      // collection across all three modules, so this check matters most.
       if (path === '/api/records' && method === 'GET') {
         const farmId = url.searchParams.get('farm_id');
         const collection = url.searchParams.get('collection');
+        if (!await verifyFarmAccess(env, user.id, farmId)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         const rows = await env.DB.prepare(
           'SELECT data FROM farm_records WHERE farm_id = ? AND collection = ? AND deleted = 0'
         ).bind(farmId, collection).all();
@@ -171,6 +183,7 @@ export default {
       }
       if (path === '/api/records' && method === 'PUT') {
         const row = await request.json();
+        if (!await verifyFarmAccess(env, user.id, row.farm_id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         await env.DB.prepare(
           `INSERT INTO farm_records (farm_id,collection,record_id,data,deleted,updated_at)
            VALUES (?1,?2,?3,?4,0,datetime('now'))
@@ -182,6 +195,7 @@ export default {
         const farmId = url.searchParams.get('farm_id');
         const collection = url.searchParams.get('collection');
         const recordId = url.searchParams.get('record_id');
+        if (!await verifyFarmAccess(env, user.id, farmId)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         await env.DB.prepare(
           "UPDATE farm_records SET deleted = 1, updated_at = datetime('now') WHERE farm_id = ? AND collection = ? AND record_id = ?"
         ).bind(farmId, collection, recordId).run();
@@ -193,6 +207,7 @@ export default {
         return json(await createPaymentIntent(env, user, await request.json()), corsHeaders);
       if (path === '/api/subscriptions' && method === 'GET') {
         const farmId = url.searchParams.get('farm_id');
+        if (!await verifyFarmAccess(env, user.id, farmId)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         const rows = await env.DB.prepare('SELECT * FROM subscriptions WHERE farm_id = ?').bind(farmId).all();
         return json({ data: rows.results }, corsHeaders);
       }
@@ -251,6 +266,7 @@ export default {
       }
       if (path === '/api/platform/tickets' && method === 'POST') {
         const body = await request.json();
+        if (!await verifyFarmAccess(env, user.id, body.farm_id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         const id = uid();
         await env.DB.prepare(
           'INSERT INTO support_tickets (id, farm_id, raised_by, subject, description, priority) VALUES (?, ?, ?, ?, ?, ?)'
@@ -272,6 +288,19 @@ function uid() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Authorization check used by every farm-scoped route. D1 has no row-level
+// security like the old Supabase/Postgres setup did, so every route that
+// touches a specific farm's data MUST verify the authenticated user is
+// actually a member of that farm before reading or writing anything.
+// Never trust a farm_id from a query string or request body on its own.
+async function verifyFarmAccess(env, userId, farmId) {
+  if (!userId || !farmId) return false;
+  const row = await env.DB.prepare(
+    'SELECT id FROM farm_members WHERE user_id = ? AND farm_id = ?'
+  ).bind(userId, farmId).first();
+  return !!row;
 }
 
 function json(data, corsHeaders, status = 200) {
@@ -354,6 +383,8 @@ async function verifyJWT(request, env) {
 
 async function authSignUp(env, { email, password }) {
   if (!email || !password) return { error: 'Email and password required' };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Enter a valid email address' };
+  if (password.length < 8) return { error: 'Password must be at least 8 characters' };
   const existing = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
   if (existing) return { error: 'User already exists' };
   const id = uid();
@@ -374,13 +405,41 @@ async function authSignUp(env, { email, password }) {
   return { user: { id, email }, token };
 }
 
+// Rate limiting: 5 failed attempts locks the account for 15 minutes. This
+// only throttles guessing against ONE known email — it does not protect
+// against an attacker trying many different emails, which would need
+// IP-based limiting (a Cloudflare-level rule, not something this Worker
+// can enforce on its own).
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
+
 async function authSignIn(env, { email, password }) {
   if (!email || !password) return { error: 'Email and password required' };
   const user = await env.DB.prepare('SELECT * FROM users WHERE email = ? COLLATE NOCASE').bind(email).first();
   if (!user) return { error: 'Invalid credentials' };
+
+  if (user.locked_until) {
+    const lockedUntil = new Date(user.locked_until);
+    if (lockedUntil > new Date()) {
+      const minsLeft = Math.ceil((lockedUntil - new Date()) / 60000);
+      return { error: `Too many failed attempts. Try again in ${minsLeft} minute${minsLeft === 1 ? '' : 's'}.` };
+    }
+  }
+
   const hash = await hashPassword(password, user.salt);
-  if (hash !== user.password_hash) return { error: 'Invalid credentials' };
-  await env.DB.prepare("UPDATE users SET last_sign_in = datetime('now') WHERE id = ?").bind(user.id).run();
+  if (hash !== user.password_hash) {
+    const attempts = (user.failed_attempts || 0) + 1;
+    if (attempts >= MAX_FAILED_ATTEMPTS) {
+      const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60000).toISOString();
+      await env.DB.prepare('UPDATE users SET failed_attempts = ?, locked_until = ? WHERE id = ?').bind(attempts, lockUntil, user.id).run();
+      return { error: `Too many failed attempts. Account locked for ${LOCKOUT_MINUTES} minutes.` };
+    }
+    await env.DB.prepare('UPDATE users SET failed_attempts = ? WHERE id = ?').bind(attempts, user.id).run();
+    return { error: 'Invalid credentials' };
+  }
+
+  // Successful login clears any prior failure count/lock.
+  await env.DB.prepare("UPDATE users SET last_sign_in = datetime('now'), failed_attempts = 0, locked_until = NULL WHERE id = ?").bind(user.id).run();
   const token = await createJWT({ sub: user.id, email: user.email }, env.JWT_SECRET);
   return { user: { id: user.id, email: user.email }, token };
 }
