@@ -2370,15 +2370,6 @@ function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActiv
         {showKeyEntry&&(<div style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'18px 20px',display:'flex',flexDirection:'column',gap:12}}>
           <Inp label="License Key" value={licKey} onChange={v=>setLicKey(formatKey(v))} placeholder="PSA-XXXX-XXXX-XXXX-XXXX"/>
           {keyErr&&<Notice type="error" message={keyErr}/>}
-          {/* Temporary diagnostic — shows the exact values the key is validated against */}
-          <div style={{background:'#F3F4F6',border:'1px solid #E5E7EB',padding:'10px 12px',fontSize:11,fontFamily:'monospace',color:'#374151',lineHeight:1.7,wordBreak:'break-word'}}>
-            <div style={{fontWeight:700,marginBottom:4}}>Key is validated against these stored values:</div>
-            <div>tier: <b>{String(tier)}</b></div>
-            <div>modules: <b>{JSON.stringify(modules)}</b></div>
-            <div>contactName: <b>"{String(license&&license.profile&&license.profile.contactName)}"</b></div>
-            <div>farmName: <b>"{String(license&&license.profile&&license.profile.farmName)}"</b></div>
-            <div>capacity: <b>{JSON.stringify(license&&license.capacity)}</b></div>
-          </div>
           <div style={{display:'flex',gap:8}}><Btn onClick={tryActivate} disabled={licKey.length<23||activating}>{activating?'Activating...':'Activate License'}</Btn><Btn variant="ghost" onClick={()=>setShowKeyEntry(false)}>Cancel</Btn></div>
         </div>)}
         <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:T.ink4,fontSize:12,fontFamily:'inherit',textAlign:'left',padding:'4px 0'}}>Back to setup</button>
