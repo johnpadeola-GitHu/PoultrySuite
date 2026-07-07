@@ -1762,7 +1762,7 @@ const HATCHERY_ENGINE_RES={
 };
 const FEEDMILL_ENGINE_RES={
   cmd:'feedmill.analytics',recipe:'feedmill.operations',intake:'feedmill.operations',
-  rmqc:'feedmill.operations',silo:'feedmill.operations',
+  rmqc:'feedmill.operations',
   batch:'feedmill.operations',lots:'feedmill.operations',equipment:'feedmill.operations',
   qc:'feedmill.operations',cert:'feedmill.operations',stock:'feedmill.operations',
   distrib:'feedmill.operations',orders:'feedmill.operations',suppliers:'feedmill.operations',finance:'feedmill.finance',audit:'feedmill.analytics',
@@ -6315,7 +6315,7 @@ function HCandling({state,dispatch,pendingAction,onActionConsumed}){
 function HHatch({state,dispatch,pendingAction,onActionConsumed}){
   const {eggBatches,hatchRecords,candlingRecords,settings}=state;
   const [showForm,setShowForm]=useState(false);
-  const [f,setF]=useState({eggBatchId:'',hatchDate:hToday(),eggsSet:'',totalHatched:'',culls:'',defects:'',sexed:false,maleCount:'',femaleCount:'',notes:''});
+  const [f,setF]=useState({eggBatchId:'',hatchDate:hToday(),eggsSet:'',totalHatched:'',culls:'',defects:'',notes:''});
   const fld=(k,v)=>setF(p=>({...p,[k]:v}));
   const hatchBatches=eggBatches.filter(e=>!['Received','Hatched','Cancelled'].includes(e.status));
   // Deep-link: open hatch form for the batch flagged by a low-hatchability notification
@@ -6332,8 +6332,8 @@ function HHatch({state,dispatch,pendingAction,onActionConsumed}){
   const save=()=>{
     if(!f.eggBatchId||!f.totalHatched)return;
     const eb=eggBatches.find(e=>e.id===f.eggBatchId);
-    dispatch({type:'ADD_HATCH',p:{id:huid('HR'),eggBatchId:f.eggBatchId,hatchDate:f.hatchDate,eggsSet:parseInt(f.eggsSet)||eb?.graded||0,totalHatched:parseInt(f.totalHatched)||0,culls:parseInt(f.culls)||0,defects:parseInt(f.defects)||0,sexed:f.sexed,maleCount:parseInt(f.maleCount)||0,femaleCount:parseInt(f.femaleCount)||0,notes:f.notes}});
-    setF({eggBatchId:'',hatchDate:hToday(),eggsSet:'',totalHatched:'',culls:'',defects:'',sexed:false,maleCount:'',femaleCount:'',notes:''});setShowForm(false);
+    dispatch({type:'ADD_HATCH',p:{id:huid('HR'),eggBatchId:f.eggBatchId,hatchDate:f.hatchDate,eggsSet:parseInt(f.eggsSet)||eb?.graded||0,totalHatched:parseInt(f.totalHatched)||0,culls:parseInt(f.culls)||0,defects:parseInt(f.defects)||0,sexed:false,maleCount:0,femaleCount:0,notes:f.notes}});
+    setF({eggBatchId:'',hatchDate:hToday(),eggsSet:'',totalHatched:'',culls:'',defects:'',notes:''});setShowForm(false);
   };
   return(
     <div style={{display:'flex',flexDirection:'column',gap:14}}>
@@ -6367,8 +6367,7 @@ function HHatch({state,dispatch,pendingAction,onActionConsumed}){
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Hatch Date *" type="date" value={f.hatchDate} onChange={v=>fld('hatchDate',v)}/><Inp label="Eggs Set" type="number" value={f.eggsSet} onChange={v=>fld('eggsSet',v)}/></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Total Hatched *" type="number" value={f.totalHatched} onChange={v=>fld('totalHatched',v)}/><Inp label="Culls" type="number" value={f.culls} onChange={v=>fld('culls',v)} placeholder="0"/><Inp label="Defects" type="number" value={f.defects} onChange={v=>fld('defects',v)} placeholder="0"/></div>
           {f.totalHatched&&f.eggsSet&&<Notice type="info" message={`Hatchability: ${hPct(parseInt(f.totalHatched||0),parseInt(f.eggsSet||1))}%`}/>}
-          <div style={{display:'flex',alignItems:'center',gap:10}}><input type="checkbox" id="hSexed" checked={f.sexed} onChange={e=>fld('sexed',e.target.checked)} style={{width:16,height:16,cursor:'pointer'}}/><label htmlFor="hSexed" style={{fontSize:13,color:T.ink,cursor:'pointer'}}>Chicks were sexed</label></div>
-          {f.sexed&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Males" type="number" value={f.maleCount} onChange={v=>fld('maleCount',v)}/><Inp label="Females" type="number" value={f.femaleCount} onChange={v=>fld('femaleCount',v)}/></div>}
+          <Notice type="info" message="Chick sexing and quality grading are tracked in the Chick Grading tab — record this hatch first, then grade it there."/>
           <Inp label="Notes" value={f.notes} onChange={v=>fld('notes',v)} placeholder="Hatch observations"/>
           <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.eggBatchId||!f.totalHatched}>Record Hatch</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
         </div>
@@ -7089,9 +7088,18 @@ function FMRawMaterial({state,dispatch,pendingAction,onActionConsumed}){
   const adj=(rm,d)=>{const ns=Math.max(0,rm.stock+d);dispatch({type:'UPDATE_RM',p:{...rm,stock:ns,status:ns<=0?'Critical':ns<=rm.reorder?'Low':'OK'}});};
   const low=rawMaterials.filter(r=>r.status!=='OK');
   const cats=[...new Set(rawMaterials.map(r=>r.category))];
+  const [view,setView]=useState('category'); // 'category' | 'silo' — two lenses on the same stock data
+  const assignedToSilo=rawMaterials.filter(r=>r.siloId);
+  const bySilo={};
+  assignedToSilo.forEach(r=>{if(!bySilo[r.siloId])bySilo[r.siloId]=[];bySilo[r.siloId].push(r);});
+  const silos=Object.keys(bySilo).sort();
   return(
     <div style={{display:'flex',flexDirection:'column',gap:14}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Raw Material Inventory</span><Btn size="sm" onClick={()=>setShowForm(true)}>+ Record Intake</Btn></div>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={()=>setView('category')} style={{flex:1,padding:'9px',border:`1px solid ${view==='category'?T.ink:T.line}`,background:view==='category'?T.bg2:T.bg0,color:T.ink,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>By Category</button>
+        <button onClick={()=>setView('silo')} style={{flex:1,padding:'9px',border:`1px solid ${view==='silo'?T.ink:T.line}`,background:view==='silo'?T.bg2:T.bg0,color:T.ink,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>By Silo / Warehouse</button>
+      </div>
       {restockTarget&&<FMModal title={`Restock: ${restockTarget.item.name}`} onClose={()=>setRestockTarget(null)} width={420}><div style={{display:'flex',flexDirection:'column',gap:12}}>
         <div style={{padding:'10px 12px',background:T.warnBg,border:`1px solid ${T.warn}`,fontSize:12,color:T.ink2,lineHeight:1.5}}>Current stock: <strong>{restockTarget.item.stock.toLocaleString()} {restockTarget.item.unit}</strong> · Reorder level: <strong>{restockTarget.item.reorder.toLocaleString()} {restockTarget.item.unit}</strong></div>
         <Inp label={`Quantity to add (${restockTarget.item.unit})`} type="number" value={restockTarget.delta} onChange={v=>setRestockTarget(rt=>({...rt,delta:Number(v)||0}))}/>
@@ -7106,7 +7114,7 @@ function FMRawMaterial({state,dispatch,pendingAction,onActionConsumed}){
           <div key={l} style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'11px 13px'}}><div style={{fontSize:10,color:T.ink4,textTransform:'uppercase',letterSpacing:.4,marginBottom:2}}>{l}</div><div className="mono" style={{fontSize:16,fontWeight:700,color:T.ink}}>{v}</div></div>
         ))}
       </div>
-      {cats.map(cat=>(
+      {view==='category'&&cats.map(cat=>(
         <div key={cat} style={{background:T.bg0,border:`1px solid ${T.line}`,overflow:'hidden'}}>
           <div style={{padding:'8px 16px',borderBottom:`1px solid ${T.line}`,fontSize:11,fontWeight:700,color:T.ink4,textTransform:'uppercase',letterSpacing:.8}}>{cat}</div>
           {rawMaterials.filter(r=>r.category===cat).map((rm,idx)=>{
@@ -7114,7 +7122,7 @@ function FMRawMaterial({state,dispatch,pendingAction,onActionConsumed}){
             const sc=rm.status==='OK'?T.ok:rm.status==='Low'?T.warn:T.err;
             return(<div key={rm.id} style={{padding:'10px 16px',borderTop:idx>0?`1px solid ${T.line}`:'none'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
-                <div><div style={{fontSize:13,fontWeight:600,color:T.ink}}>{rm.name} <span style={{fontSize:10,color:T.ink4}}>Grade {rm.qualityGrade}</span></div><div style={{fontSize:11,color:T.ink4}}>{rm.supplier||'--'} · Reorder at {fmFmt(rm.reorder)} {rm.unit}</div></div>
+                <div><div style={{fontSize:13,fontWeight:600,color:T.ink}}>{rm.name} <span style={{fontSize:10,color:T.ink4}}>Grade {rm.qualityGrade}</span></div><div style={{fontSize:11,color:T.ink4}}>{rm.supplier||'--'} · Reorder at {fmFmt(rm.reorder)} {rm.unit}{rm.siloId?` · ${rm.siloId}`:''}</div></div>
                 <div style={{display:'flex',gap:5,alignItems:'center'}}>
                   <button onClick={()=>adj(rm,-100)} style={{width:26,height:26,border:`1px solid ${T.line}`,background:T.bg0,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',color:T.ink3}}>-</button>
                   <div style={{textAlign:'center',minWidth:68}}><div className="mono" style={{fontSize:13,fontWeight:700,color:sc}}>{fmFmt(rm.stock)}</div><div style={{fontSize:9,color:T.ink4}}>{rm.unit}</div></div>
@@ -7127,7 +7135,24 @@ function FMRawMaterial({state,dispatch,pendingAction,onActionConsumed}){
           })}
         </div>
       ))}
-      {rawMaterials.length===0&&<FMEmpty icon="grain" title="No raw materials" sub="Record material intake"/>}
+      {view==='category'&&rawMaterials.length===0&&<FMEmpty icon="grain" title="No raw materials" sub="Record material intake"/>}
+      {view==='silo'&&(silos.length===0?<FMEmpty icon="grain" title="No silos assigned yet" sub="Assign a Silo/Bin ID when recording intake above to see fill-level tracking here"/>:
+        silos.map(siloId=>{
+          const items=bySilo[siloId];
+          const totalStock=items.reduce((s,r)=>s+(r.stock||0),0);
+          const totalCap=items.reduce((s,r)=>s+(r.capacity||0),0);
+          const pct=totalCap>0?Math.min(100,Math.round((totalStock/totalCap)*100)):null;
+          const sc=pct==null?T.ink4:pct>=90?T.err:pct>=70?T.warn:T.ok;
+          return(<div key={siloId} style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'14px 16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+              <div><div style={{fontSize:14,fontWeight:700,color:T.ink}}>{siloId}</div><div style={{fontSize:12,color:T.ink4}}>{items.map(r=>r.name).join(', ')}</div></div>
+              <div style={{textAlign:'right'}}><div className="mono" style={{fontSize:18,fontWeight:700,color:sc}}>{pct!=null?`${pct}%`:'--'}</div><div style={{fontSize:10,color:T.ink4}}>{pct!=null?'of capacity':'no capacity set'}</div></div>
+            </div>
+            {pct!=null&&<div style={{height:8,background:T.bg2,overflow:'hidden',marginBottom:8}}><div style={{width:`${pct}%`,height:'100%',background:sc,transition:'width .4s'}}/></div>}
+            <div style={{fontSize:11,color:T.ink4}}>{fmFmt(totalStock)} of {totalCap>0?fmFmt(totalCap):'—'} {items[0]?.unit||''}</div>
+          </div>);
+        })
+      )}
       {showForm&&(<FMModal title="Record Raw Material Intake" onClose={()=>setShowForm(false)}>
         <div style={{display:'flex',flexDirection:'column',gap:10}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Material Name *" value={f.name} onChange={v=>fld('name',v)} placeholder="e.g. Maize"/><Sel label="Category *" value={f.category} onChange={v=>fld('category',v)} options={CATS}/></div>
@@ -7198,37 +7223,6 @@ function FMRawMaterialQC({state,dispatch}){
           <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.rawMaterialId}>Save Test Result</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
         </div>
       </FMModal>)}
-    </div>
-  );
-}
-
-function FMSiloManagement({state}){
-  const {rawMaterials}=state;
-  const assigned=rawMaterials.filter(r=>r.siloId);
-  const bySilo={};
-  assigned.forEach(r=>{if(!bySilo[r.siloId])bySilo[r.siloId]=[];bySilo[r.siloId].push(r);});
-  const silos=Object.keys(bySilo).sort();
-  return(
-    <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Silo & Warehouse Capacity</span></div>
-      <Notice type="info" message="Assign a Silo/Bin ID and capacity when recording raw material intake (Raw Materials tab) to see fill-level tracking here."/>
-      {silos.length===0?<FMEmpty icon="grain" title="No silos assigned yet" sub="Assign a Silo ID to raw materials at intake"/>:
-        silos.map(siloId=>{
-          const items=bySilo[siloId];
-          const totalStock=items.reduce((s,r)=>s+(r.stock||0),0);
-          const totalCap=items.reduce((s,r)=>s+(r.capacity||0),0);
-          const pct=totalCap>0?Math.min(100,Math.round((totalStock/totalCap)*100)):null;
-          const sc=pct==null?T.ink4:pct>=90?T.err:pct>=70?T.warn:T.ok;
-          return(<div key={siloId} style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'14px 16px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
-              <div><div style={{fontSize:14,fontWeight:700,color:T.ink}}>{siloId}</div><div style={{fontSize:12,color:T.ink4}}>{items.map(r=>r.name).join(', ')}</div></div>
-              <div style={{textAlign:'right'}}><div className="mono" style={{fontSize:18,fontWeight:700,color:sc}}>{pct!=null?`${pct}%`:'--'}</div><div style={{fontSize:10,color:T.ink4}}>{pct!=null?'of capacity':'no capacity set'}</div></div>
-            </div>
-            {pct!=null&&<div style={{height:8,background:T.bg2,overflow:'hidden',marginBottom:8}}><div style={{width:`${pct}%`,height:'100%',background:sc,transition:'width .4s'}}/></div>}
-            <div style={{fontSize:11,color:T.ink4}}>{fmFmt(totalStock)} of {totalCap>0?fmFmt(totalCap):'—'} {items[0]?.unit||''}</div>
-          </div>);
-        })
-      }
     </div>
   );
 }
@@ -7865,7 +7859,6 @@ function FeedMillModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
     {id:'recipe',label:'Formulation & Recipe',icon:'recipe'},
     {id:'intake',label:'Raw Materials',icon:'intake'},
     {id:'rmqc',label:'Raw Material QC',icon:'rmqc'},
-    {id:'silo',label:'Silo Management',icon:'silo'},
     {id:'batch',label:'Production Batch',icon:'batch'},
     {id:'lots',label:'Lot Traceability',icon:'lots'},
     {id:'equipment',label:'Equipment & Maintenance',icon:'equipment'},
@@ -7894,7 +7887,6 @@ function FeedMillModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
     else if(id==='recipe')  content=<FMRecipe            state={fm} dispatch={dispatch}/>;
     else if(id==='intake')  content=<FMRawMaterial       state={fm} dispatch={dispatch} pendingAction={actionFor('intake')} onActionConsumed={consumePendingAction}/>;
     else if(id==='rmqc')    content=<FMRawMaterialQC     state={fm} dispatch={dispatch}/>;
-    else if(id==='silo')    content=<FMSiloManagement    state={fm} dispatch={dispatch}/>;
     else if(id==='batch')   content=<FMBatchEngine       state={fm} dispatch={dispatch} licenseCapacity={capacity} pendingAction={actionFor('batch')} onActionConsumed={consumePendingAction}/>;
     else if(id==='lots')    content=<FMLotTraceability   state={fm} dispatch={dispatch}/>;
     else if(id==='equipment')content=<FMEquipment        state={fm} dispatch={dispatch}/>;
