@@ -417,6 +417,14 @@ function hsReducer(state,action){
     case 'HS_ADD_ORDER':{const s={...state,orders:[action.p,...(state.orders||[])]};return audit(s,`Order: ${action.p.qty} ${action.p.product}`,'Order',null,action.p);}
     case 'HS_UPDATE_ORDER':{const s={...state,orders:(state.orders||[]).map(o=>o.id===action.p.id?action.p:o)};return audit(s,`Order ${action.p.id}: ${action.p.status}`,'Order',null,action.p);}
     case 'HS_DELETE_ORDER':{const s={...state,orders:(state.orders||[]).filter(o=>o.id!==action.p)};return audit(s,'Order deleted','Order',null,null);}
+    // ── Breeder Flock Traceability ──
+    case 'HS_ADD_BREEDER':{const s={...state,breederFlocks:[action.p,...(state.breederFlocks||[])]};return audit(s,`Breeder flock registered: ${action.p.name}`,'BreederFlock',null,action.p);}
+    case 'HS_UPDATE_BREEDER':{const s={...state,breederFlocks:(state.breederFlocks||[]).map(b=>b.id===action.p.id?action.p:b)};return audit(s,`Breeder flock updated: ${action.p.name}`,'BreederFlock',null,action.p);}
+    case 'HS_DELETE_BREEDER':{const s={...state,breederFlocks:(state.breederFlocks||[]).filter(b=>b.id!==action.p)};return audit(s,'Breeder flock removed','BreederFlock',null,null);}
+    // ── Chick Sexing & Grading ──
+    case 'HS_ADD_GRADING':{const s={...state,chickGrading:[action.p,...(state.chickGrading||[])]};return audit(s,`Grading recorded for hatch ${action.p.hatchRecordId||''}`,'ChickGrading',null,action.p);}
+    case 'HS_UPDATE_GRADING':{const s={...state,chickGrading:(state.chickGrading||[]).map(g=>g.id===action.p.id?action.p:g)};return audit(s,'Grading record updated','ChickGrading',null,action.p);}
+    case 'HS_DELETE_GRADING':{const s={...state,chickGrading:(state.chickGrading||[]).filter(g=>g.id!==action.p)};return audit(s,'Grading record removed','ChickGrading',null,null);}
     case 'UPDATE_SETTINGS':{const s={...state,settings:{...state.settings,...action.p}};return audit(s,'Settings updated','Settings',null,action.p);}
     case '__SYNC_SET_COLLECTION':{return {...state,[action.collection]:action.p};}
     case 'RESTORE':return action.p;
@@ -1029,6 +1037,13 @@ function HIcon({id,size=22,color="currentColor"}){
     case "orders":return(<svg width={size} height={size} viewBox={v} {...p}>
       <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
       <path d="M2 3h3l2.5 12h11l2-8H6.5"/>
+    </svg>);
+    case "breeder":return(<svg width={size} height={size} viewBox={v} {...p}>
+      <path d="M12 2C8 2 5 5 5 9c0 4 3 6 3 9v2h8v-2c0-3 3-5 3-9 0-4-3-7-7-7Z"/>
+      <circle cx="12" cy="9" r="2"/>
+    </svg>);
+    case "grading":return(<svg width={size} height={size} viewBox={v} {...p}>
+      <path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5Z"/>
     </svg>);
     default:return(<svg width={size} height={size} viewBox={v} {...p}>
       <rect x="3" y="3" width="18" height="18"/>
@@ -1700,6 +1715,7 @@ const POULTRY_ENGINE_RES={
 const HATCHERY_ENGINE_RES={
   cmd:'hatchery.analytics',intake:'hatchery.operations',incubation:'hatchery.operations',
   candling:'hatchery.operations',hatch:'hatchery.operations',vaccine:'hatchery.operations',
+  breeder:'hatchery.operations',grading:'hatchery.operations',
   inventory:'hatchery.operations',orders:'hatchery.operations',finance:'hatchery.finance',audit:'hatchery.analytics',
   settings:'hatchery.admin',help:'hatchery.analytics'
 };
@@ -5902,11 +5918,11 @@ function HCmdCenter({state,dataMode}){
 }
 
 function HEggIntake({state,dispatch,licenseCapacity=0}){
-  const {eggBatches}=state;
+  const {eggBatches,breederFlocks=[]}=state;
   const [showForm,setShowForm]=useState(false);
   const [err,setErr]=useState('');
   const BREEDS=['Ross 308','Cobb 500','Isa Brown','Lohmann Brown','Hubbard Flex','Marshall Broiler','SASSO','Arbor Acres'];
-  const [f,setF]=useState({batchNo:'',source:'',farm:'',breed:'',dateReceived:hToday(),qty:'',graded:'',rejected:'',notes:''});
+  const [f,setF]=useState({batchNo:'',source:'',farm:'',breed:'',breederFlockId:'',dateReceived:hToday(),qty:'',graded:'',rejected:'',notes:''});
   const fld=(k,v)=>setF(p=>({...p,[k]:v}));
   const autoNo=()=>`HEB-${new Date().getFullYear()}-${String(eggBatches.length+1).padStart(3,'0')}`;
 
@@ -5926,8 +5942,8 @@ function HEggIntake({state,dispatch,licenseCapacity=0}){
       setErr(`This intake (${hFmt(qty)} eggs) would exceed your licensed throughput for ${monthLabel}. Licensed: ${hFmt(licenseCapacity)} eggs/mo · Used: ${hFmt(usedThisMonth)} · Available: ${hFmt(remaining)} eggs.`);
       return;
     }
-    dispatch({type:'ADD_EGG_BATCH',p:{id:huid('EB'),batchNo:f.batchNo||autoNo(),source:f.source.trim(),farm:f.farm,breed:f.breed,dateReceived:f.dateReceived,qty,graded:f.graded?parseInt(f.graded):qty-rej,rejected:rej,status:'Received',notes:f.notes}});
-    setF({batchNo:'',source:'',farm:'',breed:'',dateReceived:hToday(),qty:'',graded:'',rejected:'',notes:''});setShowForm(false);
+    dispatch({type:'ADD_EGG_BATCH',p:{id:huid('EB'),batchNo:f.batchNo||autoNo(),source:f.source.trim(),farm:f.farm,breed:f.breed,breederFlockId:f.breederFlockId||null,dateReceived:f.dateReceived,qty,graded:f.graded?parseInt(f.graded):qty-rej,rejected:rej,status:'Received',notes:f.notes}});
+    setF({batchNo:'',source:'',farm:'',breed:'',breederFlockId:'',dateReceived:hToday(),qty:'',graded:'',rejected:'',notes:''});setShowForm(false);
   };
 
   const openForm=()=>{setErr('');setShowForm(true);};
@@ -5969,6 +5985,7 @@ function HEggIntake({state,dispatch,licenseCapacity=0}){
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Batch No." value={f.batchNo} onChange={v=>fld('batchNo',v)} placeholder={autoNo()}/><Inp label="Date Received *" type="date" value={f.dateReceived} onChange={v=>fld('dateReceived',v)}/></div>
           <Inp label="Source Farm / Breeder *" value={f.source} onChange={v=>fld('source',v)} placeholder="e.g. Crown Breeder Farm"/>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Farm / Company" value={f.farm} onChange={v=>fld('farm',v)} placeholder="Company name"/><Sel label="Breed" value={f.breed} onChange={v=>fld('breed',v)} options={[{value:'',label:'Select breed'},...BREEDS]}/></div>
+          {breederFlocks.length>0&&<Sel label="Breeder Flock (for traceability)" value={f.breederFlockId} onChange={v=>fld('breederFlockId',v)} options={[{value:'',label:'Not linked'},...breederFlocks.map(b=>({value:b.id,label:`${b.name} (${b.breed})`}))]}/>}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Total Qty *" type="number" value={f.qty} onChange={v=>fld('qty',v)} placeholder="Eggs received"/><Inp label="Graded (Good)" type="number" value={f.graded} onChange={v=>fld('graded',v)} placeholder="Auto"/><Inp label="Rejected" type="number" value={f.rejected} onChange={v=>fld('rejected',v)} placeholder="0"/></div>
           {f.qty&&f.rejected&&<Notice type="info" message={`Graded for incubation: ${hFmt(parseInt(f.qty||0)-parseInt(f.rejected||0))} eggs`}/>}
           <Inp label="Notes" value={f.notes} onChange={v=>fld('notes',v)} placeholder="Quality observations..."/>
@@ -6052,6 +6069,127 @@ function HIncubation({state,dispatch}){
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Temperature (C)" type="number" value={f.tempC} onChange={v=>fld('tempC',v)} placeholder="37.8"/><Inp label="Humidity (%)" type="number" value={f.humidity} onChange={v=>fld('humidity',v)} placeholder="55"/></div>
           {f.setDate&&<Notice type="info" message={`Expected hatch: ${hFmtDate(new Date(new Date(f.setDate).getTime()+incDays*86400000).toISOString().split('T')[0])}`}/>}
           <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.eggBatchId||!f.setterId}>Start Incubation</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
+        </div>
+      </HModal>)}
+    </div>
+  );
+}
+
+function HBreederFlocks({state,dispatch}){
+  const {breederFlocks=[],eggBatches,candlingRecords,hatchRecords}=state;
+  const [showForm,setShowForm]=useState(false);
+  const [editing,setEditing]=useState(null);
+  const blank={name:'',breed:'',sourceFarm:'',ageWeeks:'',henCount:'',roosterCount:'',status:'Active',notes:''};
+  const [f,setF]=useState(blank);
+  const fld=(k,v)=>setF(p=>({...p,[k]:v}));
+  const save=()=>{
+    if(!f.name||!f.breed)return;
+    if(editing){dispatch({type:'HS_UPDATE_BREEDER',p:{...editing,...f,ageWeeks:Number(f.ageWeeks)||0,henCount:Number(f.henCount)||0,roosterCount:Number(f.roosterCount)||0}});}
+    else{dispatch({type:'HS_ADD_BREEDER',p:{id:huid('BRD'),...f,ageWeeks:Number(f.ageWeeks)||0,henCount:Number(f.henCount)||0,roosterCount:Number(f.roosterCount)||0}});}
+    setF(blank);setEditing(null);setShowForm(false);
+  };
+  const openEdit=(b)=>{setEditing(b);setF({name:b.name,breed:b.breed,sourceFarm:b.sourceFarm,ageWeeks:b.ageWeeks,henCount:b.henCount,roosterCount:b.roosterCount,status:b.status,notes:b.notes||''});setShowForm(true);};
+  // Traceability: for each flock, aggregate fertility % and hatch rate % across every egg batch sourced from it.
+  const perf=(flockId)=>{
+    const batches=eggBatches.filter(e=>e.breederFlockId===flockId);
+    if(batches.length===0)return null;
+    let totalCandled=0,totalFertile=0,totalSet=0,totalHatched=0;
+    batches.forEach(b=>{
+      candlingRecords.filter(c=>c.batchId===b.id).forEach(c=>{totalCandled+=c.totalCandled||0;totalFertile+=c.fertile||0;});
+      hatchRecords.filter(h=>h.batchId===b.id).forEach(h=>{totalSet+=h.eggsSet||0;totalHatched+=h.totalHatched||0;});
+    });
+    return{
+      batchCount:batches.length,
+      fertility:totalCandled>0?Math.round((totalFertile/totalCandled)*1000)/10:null,
+      hatchRate:totalSet>0?Math.round((totalHatched/totalSet)*1000)/10:null,
+    };
+  };
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Breeder Flock Traceability</span><Btn size="sm" onClick={()=>{setEditing(null);setF(blank);setShowForm(true);}}>+ Register Flock</Btn></div>
+      <Notice type="info" message="Trace fertility and hatch-rate performance back to the source breeder flock. Link egg batches to a flock at intake to build this history."/>
+      {breederFlocks.length===0?<HEmpty icon="temp" title="No breeder flocks registered" sub="Register the flocks supplying your hatching eggs"/>:
+        breederFlocks.map(b=>{
+          const p=perf(b.id);
+          return(<div key={b.id} style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'14px 16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+              <div><div style={{display:'flex',gap:8,alignItems:'center',marginBottom:3}}><span style={{fontSize:14,fontWeight:700,color:T.ink}}>{b.name}</span><HBadge status={b.status}/></div><div style={{fontSize:12,color:T.ink4}}>{b.breed} · {b.sourceFarm} · {b.ageWeeks}wk · {hFmt(b.henCount)} hens / {hFmt(b.roosterCount)} roosters</div></div>
+              <Btn size="sm" variant="secondary" onClick={()=>openEdit(b)}>Edit</Btn>
+            </div>
+            {p?(
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+                {[['Egg Batches',p.batchCount],['Avg Fertility',p.fertility!=null?`${p.fertility}%`:'--'],['Avg Hatch Rate',p.hatchRate!=null?`${p.hatchRate}%`:'--']].map(([l,v])=>(
+                  <div key={l} style={{background:T.bg1,padding:'7px 9px'}}><div style={{fontSize:9,color:T.ink4,textTransform:'uppercase',letterSpacing:.4,marginBottom:1}}>{l}</div><div className="mono" style={{fontSize:13,fontWeight:700,color:T.ink}}>{v}</div></div>
+                ))}
+              </div>
+            ):(<div style={{fontSize:12,color:T.ink4}}>No egg batches linked to this flock yet.</div>)}
+            {b.notes&&<div style={{fontSize:12,color:T.ink3,marginTop:8}}>{b.notes}</div>}
+          </div>);
+        })
+      }
+      {showForm&&(<HModal title={editing?'Edit Breeder Flock':'Register Breeder Flock'} onClose={()=>{setShowForm(false);setEditing(null);}}>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <Inp label="Flock Name *" value={f.name} onChange={v=>fld('name',v)} placeholder="e.g. Crown Flock A1"/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Breed *" value={f.breed} onChange={v=>fld('breed',v)} placeholder="Ross 308"/><Inp label="Source Farm" value={f.sourceFarm} onChange={v=>fld('sourceFarm',v)}/></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Age (weeks)" type="number" value={f.ageWeeks} onChange={v=>fld('ageWeeks',v)}/><Inp label="Hens" type="number" value={f.henCount} onChange={v=>fld('henCount',v)}/><Inp label="Roosters" type="number" value={f.roosterCount} onChange={v=>fld('roosterCount',v)}/></div>
+          <Sel label="Status" value={f.status} onChange={v=>fld('status',v)} options={['Active','Molting','Retired']}/>
+          <Inp label="Notes" value={f.notes} onChange={v=>fld('notes',v)}/>
+          <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.name||!f.breed}>{editing?'Save Changes':'Register Flock'}</Btn><Btn variant="secondary" onClick={()=>{setShowForm(false);setEditing(null);}}>Cancel</Btn></div>
+        </div>
+      </HModal>)}
+    </div>
+  );
+}
+
+function HChickGrading({state,dispatch}){
+  const {chickGrading=[],hatchRecords,eggBatches}=state;
+  const [showForm,setShowForm]=useState(false);
+  const blank={hatchRecordId:'',date:hToday(),totalGraded:'',males:'',females:'',unsexed:'',gradeA:'',gradeB:'',reject:'',notes:''};
+  const [f,setF]=useState(blank);
+  const fld=(k,v)=>setF(p=>({...p,[k]:v}));
+  const availHatches=hatchRecords.filter(h=>!chickGrading.some(g=>g.hatchRecordId===h.id));
+  const batchNoFor=(hatchRecordId)=>{const h=hatchRecords.find(x=>x.id===hatchRecordId);const eb=h&&eggBatches.find(e=>e.id===h.batchId);return eb?.batchNo||hatchRecordId;};
+  const save=()=>{
+    if(!f.hatchRecordId)return;
+    dispatch({type:'HS_ADD_GRADING',p:{id:huid('GRD'),...f,totalGraded:Number(f.totalGraded)||0,males:Number(f.males)||0,females:Number(f.females)||0,unsexed:Number(f.unsexed)||0,gradeA:Number(f.gradeA)||0,gradeB:Number(f.gradeB)||0,reject:Number(f.reject)||0}});
+    setF(blank);setShowForm(false);
+  };
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Chick Sexing & Grading</span><Btn size="sm" onClick={()=>setShowForm(true)} disabled={availHatches.length===0}>+ Log Grading</Btn></div>
+      {chickGrading.length===0?<HEmpty icon="temp" title="No grading records yet" sub="Log sexing and quality grading after each hatch"/>:
+        chickGrading.map(g=>{
+          const totalSexed=g.males+g.females;
+          const maleRatio=totalSexed>0?Math.round((g.males/totalSexed)*1000)/10:null;
+          const gradeRate=g.totalGraded>0?Math.round((g.gradeA/g.totalGraded)*1000)/10:null;
+          return(<div key={g.id} style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'14px 16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+              <div><div style={{fontSize:14,fontWeight:700,color:T.ink}}>{batchNoFor(g.hatchRecordId)}</div><div style={{fontSize:12,color:T.ink4}}>{hFmtDate(g.date)} · {hFmt(g.totalGraded)} chicks graded</div></div>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:8}}>
+              {[['Males',hFmt(g.males)],['Females',hFmt(g.females)],['Unsexed',hFmt(g.unsexed)],['Male Ratio',maleRatio!=null?`${maleRatio}%`:'--']].map(([l,v])=>(
+                <div key={l} style={{background:T.bg1,padding:'7px 9px'}}><div style={{fontSize:9,color:T.ink4,textTransform:'uppercase',letterSpacing:.4,marginBottom:1}}>{l}</div><div className="mono" style={{fontSize:12,fontWeight:600,color:T.ink}}>{v}</div></div>
+              ))}
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+              {[['Grade A',hFmt(g.gradeA)],['Grade B',hFmt(g.gradeB)],['Rejected',hFmt(g.reject)]].map(([l,v])=>(
+                <div key={l} style={{background:T.bg1,padding:'7px 9px'}}><div style={{fontSize:9,color:T.ink4,textTransform:'uppercase',letterSpacing:.4,marginBottom:1}}>{l}</div><div className="mono" style={{fontSize:12,fontWeight:600,color:T.ink}}>{v}</div></div>
+              ))}
+            </div>
+            {gradeRate!=null&&<div style={{fontSize:11,color:T.ink4,marginTop:8}}>Grade A rate: {gradeRate}%</div>}
+            {g.notes&&<div style={{fontSize:12,color:T.ink3,marginTop:6}}>{g.notes}</div>}
+          </div>);
+        })
+      }
+      {showForm&&(<HModal title="Log Chick Grading" onClose={()=>setShowForm(false)}>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <Sel label="Hatch Record *" value={f.hatchRecordId} onChange={v=>fld('hatchRecordId',v)} options={[{value:'',label:'Select hatch'},...availHatches.map(h=>({value:h.id,label:`${batchNoFor(h.id)} — ${hFmt(h.totalHatched)} hatched`}))]}/>
+          <Inp label="Date" type="date" value={f.date} onChange={v=>fld('date',v)}/>
+          <Inp label="Total Graded *" type="number" value={f.totalGraded} onChange={v=>fld('totalGraded',v)}/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Males" type="number" value={f.males} onChange={v=>fld('males',v)}/><Inp label="Females" type="number" value={f.females} onChange={v=>fld('females',v)}/><Inp label="Unsexed" type="number" value={f.unsexed} onChange={v=>fld('unsexed',v)}/></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Grade A" type="number" value={f.gradeA} onChange={v=>fld('gradeA',v)}/><Inp label="Grade B" type="number" value={f.gradeB} onChange={v=>fld('gradeB',v)}/><Inp label="Reject" type="number" value={f.reject} onChange={v=>fld('reject',v)}/></div>
+          <Inp label="Notes" value={f.notes} onChange={v=>fld('notes',v)}/>
+          <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.hatchRecordId||!f.totalGraded}>Save Grading</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
         </div>
       </HModal>)}
     </div>
@@ -6495,7 +6633,9 @@ function HVaccineProc({state,dispatch}){
 }
 
 const HS_SEED={
-  eggBatches:[{id:'HEB001',batchNo:'HEB-2025-001',sourceFarm:'Crown Breeder Farm',breed:'Ross 308',dateReceived:'2025-01-20',totalQty:15000,rejected:450,graded:14550,status:'Hatched',notes:''},{id:'HEB002',batchNo:'HEB-2025-002',sourceFarm:'Gold Breeder Farm',breed:'Isa Brown',dateReceived:'2025-01-25',totalQty:12000,rejected:360,graded:11640,status:'Incubating',notes:''}],
+  eggBatches:[{id:'HEB001',batchNo:'HEB-2025-001',sourceFarm:'Crown Breeder Farm',breed:'Ross 308',dateReceived:'2025-01-20',totalQty:15000,rejected:450,graded:14550,status:'Hatched',breederFlockId:'BRD001',notes:''},{id:'HEB002',batchNo:'HEB-2025-002',sourceFarm:'Gold Breeder Farm',breed:'Isa Brown',dateReceived:'2025-01-25',totalQty:12000,rejected:360,graded:11640,status:'Incubating',breederFlockId:'BRD002',notes:''}],
+  breederFlocks:[{id:'BRD001',name:'Crown Flock A1',breed:'Ross 308',sourceFarm:'Crown Breeder Farm',ageWeeks:38,henCount:8500,roosterCount:850,status:'Active',notes:'Primary Ross 308 breeder line'},{id:'BRD002',name:'Gold Flock B2',breed:'Isa Brown',sourceFarm:'Gold Breeder Farm',ageWeeks:42,henCount:6000,roosterCount:600,status:'Active',notes:''}],
+  chickGrading:[{id:'GRD001',hatchRecordId:'HCH001',date:'2025-02-10',totalGraded:12800,males:6300,females:6100,unsexed:400,gradeA:11500,gradeB:1000,reject:300,notes:'Standard sexing accuracy ~95%'}],
   incubationRecords:[{id:'INC001',batchId:'HEB001',machineId:'SET-A',setDate:'2025-01-20',expectedHatch:'2025-02-10',temperature:37.8,humidity:58,status:'Complete'},{id:'INC002',batchId:'HEB002',machineId:'SET-B',setDate:'2025-01-25',expectedHatch:'2025-02-15',temperature:37.7,humidity:57,status:'Active'}],
   candlingRecords:[{id:'CND001',batchId:'HEB001',date:'2025-01-27',totalCandled:14550,fertile:13200,infertile:900,earlyDead:280,lateDead:170,notes:'Good fertility'}],
   hatchRecords:[{id:'HCH001',batchId:'HEB001',hatchDate:'2025-02-10',eggsSet:14550,totalHatched:12800,culls:320,defects:140,sexed:false,males:0,females:0,notes:''}],
@@ -6517,7 +6657,7 @@ function HatcheryModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
   const __hsFarmId=(typeof window!=='undefined' && window.__psaActiveFarmId)||null;
   const __hsSig=useRef({});
   const __hsReady=useRef(false);
-  const HS_SYNC_COLLECTIONS=['eggBatches','incubationRecords','candlingRecords','hatchRecords','processingRecords','inventory','customers','orders','suppliers','purchaseOrders','financialLogs'];
+  const HS_SYNC_COLLECTIONS=['eggBatches','incubationRecords','candlingRecords','hatchRecords','processingRecords','inventory','breederFlocks','chickGrading','customers','orders','suppliers','purchaseOrders','financialLogs'];
   useEffect(()=>{
     let cancelled=false;
     (async()=>{
@@ -6554,7 +6694,7 @@ function HatcheryModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
     })();
     return ()=>{cancelled=true;};
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[hs.eggBatches,hs.incubationRecords,hs.candlingRecords,hs.hatchRecords,hs.processingRecords,hs.inventory,hs.customers,hs.orders,hs.suppliers,hs.purchaseOrders,hs.financialLogs,__hsFarmId]);
+  },[hs.eggBatches,hs.incubationRecords,hs.candlingRecords,hs.hatchRecords,hs.processingRecords,hs.inventory,hs.breederFlocks,hs.chickGrading,hs.customers,hs.orders,hs.suppliers,hs.purchaseOrders,hs.financialLogs,__hsFarmId]);
 
   const role=activeUser?.role||'Owner / Director';
 
@@ -6564,6 +6704,8 @@ function HatcheryModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
     {id:'incubation',label:'Incubation',icon:'incubation'},
     {id:'candling',label:'Candling',icon:'candling'},
     {id:'hatch',label:'Hatch Output',icon:'hatch'},
+    {id:'breeder',label:'Breeder Flocks',icon:'breeder'},
+    {id:'grading',label:'Chick Grading',icon:'grading'},
     {id:'vaccine',label:'Vaccination & Processing',icon:'vaccine'},
     {id:'inventory',label:'Inventory',icon:'inventory'},
     {id:'orders',label:'Sales & Procurement',icon:'orders'},
@@ -6589,6 +6731,8 @@ function HatcheryModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
     else if(id==='incubation')content=<HIncubation      state={hs} dispatch={dispatch}/>;
     else if(id==='candling') content=<HCandling         state={hs} dispatch={dispatch} pendingAction={actionFor('candling')} onActionConsumed={consumePendingAction}/>;
     else if(id==='hatch')    content=<HHatch            state={hs} dispatch={dispatch} pendingAction={actionFor('hatch')} onActionConsumed={consumePendingAction}/>;
+    else if(id==='breeder')  content=<HBreederFlocks    state={hs} dispatch={dispatch}/>;
+    else if(id==='grading')  content=<HChickGrading     state={hs} dispatch={dispatch}/>;
     else if(id==='vaccine')  content=<HVaccineProc      state={hs} dispatch={dispatch}/>;
     else if(id==='inventory')content=<HInventory        state={hs} dispatch={dispatch} pendingAction={actionFor('inventory')} onActionConsumed={consumePendingAction}/>;
     else if(id==='orders')   content=<SalesProcurementEngine state={hs} dispatch={dispatch} cfg={{unit:'chicks',unitSing:'chick',products:['Day-old Layer Chicks','Day-old Broiler Chicks','Day-old Cockerels','Point-of-lay Pullets','Hatching Eggs','Table Eggs'],procureItems:['Hatching Eggs','Trays & Packaging','Equipment','Fuel/Power','Vaccines','Other']}}/>;
@@ -6726,7 +6870,7 @@ const FM_SEED={
 
 // ── Empty seeds for Live Mode (no demo data)
 const PS_EMPTY={houses:[],batches:[],mortalityLogs:[],feedLogs:[],feedTypes:['Broiler Starter','Broiler Grower','Broiler Finisher','Layer Mash','Layer Concentrate','Chick Mash','Pre-Starter'],vaccinations:[],healthLogs:[],vetTreatments:[],vetDrugs:[],vetPrescriptions:[],vetConsults:[],bioCases:[],bioZones:[],bioSanitation:[],bioAccess:[],bioLockdown:false,bioCompliance:{},customers:[],orders:[],suppliers:[],purchaseOrders:[],financialLogs:[],auditLog:[{id:'AL-LIVE-001',ts:new Date().toISOString(),user:'System',action:'Switched to Live Mode — clean environment initialized',entity:'System',entityId:'',prev:null,next:null}],settings:{orgName:'',location:'',currency:'NGN',currencySymbol:'N',weightUnit:'kg',defaultBatchType:'Broiler',mortalityThreshold:2.0,eggProductionThreshold:75,feedStockDaysThreshold:3,reminderDays:2,enableAlerts:true,enableVaxReminder:true}};
-const HS_EMPTY={eggBatches:[],incubationRecords:[],candlingRecords:[],hatchRecords:[],processingRecords:[],inventory:[],customers:[],orders:[],suppliers:[],purchaseOrders:[],financialLogs:[],auditLog:[{id:'HAL-LIVE-001',ts:new Date().toISOString(),user:'System',action:'Switched to Live Mode — clean environment initialized',entity:'System',prev:null,next:null}],settings:{hatcheryName:'',location:'',currency:'NGN',symbol:'N',incubationDays:21,candleDay:7,transferDay:18,targetFertility:90,targetHatchability:85,targetHatchRate:80,alertsEnabled:true}};
+const HS_EMPTY={eggBatches:[],incubationRecords:[],candlingRecords:[],hatchRecords:[],processingRecords:[],inventory:[],breederFlocks:[],chickGrading:[],customers:[],orders:[],suppliers:[],purchaseOrders:[],financialLogs:[],auditLog:[{id:'HAL-LIVE-001',ts:new Date().toISOString(),user:'System',action:'Switched to Live Mode — clean environment initialized',entity:'System',prev:null,next:null}],settings:{hatcheryName:'',location:'',currency:'NGN',symbol:'N',incubationDays:21,candleDay:7,transferDay:18,targetFertility:90,targetHatchability:85,targetHatchRate:80,alertsEnabled:true}};
 const FM_EMPTY={recipes:[],rawMaterials:[],productionBatches:[],qcRecords:[],finishedInventory:[],distributions:[],customers:[],orders:[],suppliers:[],purchaseOrders:[],financialLogs:[],auditLog:[{id:'FMA-LIVE-001',ts:new Date().toISOString(),user:'System',action:'Switched to Live Mode — clean environment initialized',entity:'System',prev:null,next:null}],settings:{millName:'',location:'',currency:'NGN',weightUnit:'kg',defaultMillId:'MILL-A',targetEfficiency:95,stockAlertDays:7,alertsEnabled:true}};
 
 // ── Data mode storage helpers
