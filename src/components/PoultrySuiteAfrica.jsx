@@ -385,6 +385,26 @@ function fmReducer(state,action){
     case 'FM_ADD_SUPPLIER':{const s={...state,suppliers:[action.p,...(state.suppliers||[])]};return audit(s,`Supplier added: ${action.p.name}`,'Supplier',null,action.p);}
     case 'FM_UPDATE_SUPPLIER':{const s={...state,suppliers:(state.suppliers||[]).map(su=>su.id===action.p.id?action.p:su)};return audit(s,`Supplier updated: ${action.p.name}`,'Supplier',null,action.p);}
     case 'FM_DELETE_SUPPLIER':{const s={...state,suppliers:(state.suppliers||[]).filter(su=>su.id!==action.p)};return audit(s,'Supplier deleted','Supplier',null,null);}
+    // ── Raw Material Quality Control (incoming intake testing) ──
+    case 'FM_ADD_RM_QC':{const s={...state,rmQcRecords:[action.p,...(state.rmQcRecords||[])],rawMaterials:(state.rawMaterials||[]).map(r=>r.id===action.p.rawMaterialId?{...r,qcStatus:action.p.result}:r)};return audit(s,`Raw material QC: ${action.p.result}`,'RawMaterialQC',null,action.p);}
+    case 'FM_DELETE_RM_QC':{const s={...state,rmQcRecords:(state.rmQcRecords||[]).filter(q=>q.id!==action.p)};return audit(s,'Raw material QC record removed','RawMaterialQC',null,null);}
+    // ── Lot-Level Traceability ──
+    case 'FM_ADD_LOT_LINK':{const s={...state,batchLotLinks:[action.p,...(state.batchLotLinks||[])]};return audit(s,`Lot ${action.p.lotNo} linked to batch`,'LotLink',null,action.p);}
+    case 'FM_DELETE_LOT_LINK':{const s={...state,batchLotLinks:(state.batchLotLinks||[]).filter(l=>l.id!==action.p)};return audit(s,'Lot link removed','LotLink',null,null);}
+    // ── Equipment & Maintenance ──
+    case 'FM_ADD_EQUIPMENT':{const s={...state,equipment:[action.p,...(state.equipment||[])]};return audit(s,`Equipment registered: ${action.p.name}`,'Equipment',null,action.p);}
+    case 'FM_UPDATE_EQUIPMENT':{const s={...state,equipment:(state.equipment||[]).map(e=>e.id===action.p.id?action.p:e)};return audit(s,`Equipment updated: ${action.p.name}`,'Equipment',null,action.p);}
+    case 'FM_DELETE_EQUIPMENT':{const s={...state,equipment:(state.equipment||[]).filter(e=>e.id!==action.p)};return audit(s,'Equipment removed','Equipment',null,null);}
+    case 'FM_ADD_MAINTENANCE':{
+      const log=action.p;
+      const eq=(state.equipment||[]).find(e=>e.id===log.equipmentId);
+      const s={...state,maintenanceLogs:[log,...(state.maintenanceLogs||[])],equipment:(state.equipment||[]).map(e=>e.id===log.equipmentId?{...e,status:log.returnedToService?'Operational':'Under Maintenance',lastMaintenance:log.date}:e)};
+      return audit(s,`Maintenance logged: ${eq?.name||''} (${log.type})`,'Maintenance',null,log);
+    }
+    case 'FM_DELETE_MAINTENANCE':{const s={...state,maintenanceLogs:(state.maintenanceLogs||[]).filter(m=>m.id!==action.p)};return audit(s,'Maintenance log removed','Maintenance',null,null);}
+    // ── Certificate of Analysis ──
+    case 'FM_ADD_CERTIFICATE':{const s={...state,certificates:[action.p,...(state.certificates||[])]};return audit(s,`Certificate of Analysis issued: ${action.p.certNo}`,'Certificate',null,action.p);}
+    case 'FM_DELETE_CERTIFICATE':{const s={...state,certificates:(state.certificates||[]).filter(c=>c.id!==action.p)};return audit(s,'Certificate removed','Certificate',null,null);}
     case 'UPDATE_SETTINGS':{const s={...state,settings:{...state.settings,...action.p}};return audit(s,'Settings updated','Settings',null,action.p);}
     case '__SYNC_SET_COLLECTION':{return {...state,[action.collection]:action.p};}
     case 'RESTORE':return action.p;
@@ -1121,6 +1141,27 @@ function FMIcon({id,size=22,color="currentColor"}){
       <circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/>
       <path d="M2 3h3l2.5 12h11l2-8H6.5"/>
     </svg>);
+    case "rmqc":return(<svg width={size} height={size} viewBox={v} {...p}>
+      <path d="M9 2v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V2"/>
+      <path d="M8.5 2h7M6 16h12"/>
+    </svg>);
+    case "silo":return(<svg width={size} height={size} viewBox={v} {...p}>
+      <path d="M6 8a6 6 0 0 1 12 0v9a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V8Z"/>
+      <path d="M6 8h12"/>
+    </svg>);
+    case "lots":return(<svg width={size} height={size} viewBox={v} {...p}>
+      <path d="M3 7l9-4 9 4-9 4-9-4Z"/>
+      <path d="M3 7v10l9 4 9-4V7"/>
+      <path d="M12 11v10"/>
+    </svg>);
+    case "equipment":return(<svg width={size} height={size} viewBox={v} {...p}>
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76Z"/>
+    </svg>);
+    case "cert":return(<svg width={size} height={size} viewBox={v} {...p}>
+      <rect x="3" y="4" width="18" height="13" rx="1"/>
+      <path d="M9 21l3-2 3 2v-4H9v4Z"/>
+      <path d="M7 8h10M7 11h6"/>
+    </svg>);
     default:return(<svg width={size} height={size} viewBox={v} {...p}>
       <rect x="3" y="3" width="18" height="18"/>
       <path d="M12 8V13M12 16H12.01"/>
@@ -1721,7 +1762,9 @@ const HATCHERY_ENGINE_RES={
 };
 const FEEDMILL_ENGINE_RES={
   cmd:'feedmill.analytics',recipe:'feedmill.operations',intake:'feedmill.operations',
-  batch:'feedmill.operations',qc:'feedmill.operations',stock:'feedmill.operations',
+  rmqc:'feedmill.operations',silo:'feedmill.operations',
+  batch:'feedmill.operations',lots:'feedmill.operations',equipment:'feedmill.operations',
+  qc:'feedmill.operations',cert:'feedmill.operations',stock:'feedmill.operations',
   distrib:'feedmill.operations',orders:'feedmill.operations',suppliers:'feedmill.operations',finance:'feedmill.finance',audit:'feedmill.analytics',
   settings:'feedmill.admin',help:'feedmill.analytics'
 };
@@ -6156,9 +6199,7 @@ function HChickGrading({state,dispatch}){
   };
   return(
     <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Chick Sexing & Grading</span><Btn size="sm" onClick={()=>setShowForm(true)}>+ Log Grading</Btn></div>
-      {hatchRecords.length===0&&<Notice type="info" message="No hatch records exist yet — log a hatch in Hatch Output first, then come back here to grade it."/>}
-      {hatchRecords.length>0&&availHatches.length===0&&<Notice type="info" message="Every hatch record already has a grading log. Once you record a new hatch, it will appear here to grade."/>}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Chick Sexing & Grading</span><Btn size="sm" onClick={()=>setShowForm(true)} disabled={availHatches.length===0}>+ Log Grading</Btn></div>
       {chickGrading.length===0?<HEmpty icon="temp" title="No grading records yet" sub="Log sexing and quality grading after each hatch"/>:
         chickGrading.map(g=>{
           const totalSexed=g.males+g.females;
@@ -6191,7 +6232,6 @@ function HChickGrading({state,dispatch}){
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Males" type="number" value={f.males} onChange={v=>fld('males',v)}/><Inp label="Females" type="number" value={f.females} onChange={v=>fld('females',v)}/><Inp label="Unsexed" type="number" value={f.unsexed} onChange={v=>fld('unsexed',v)}/></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Grade A" type="number" value={f.gradeA} onChange={v=>fld('gradeA',v)}/><Inp label="Grade B" type="number" value={f.gradeB} onChange={v=>fld('gradeB',v)}/><Inp label="Reject" type="number" value={f.reject} onChange={v=>fld('reject',v)}/></div>
           <Inp label="Notes" value={f.notes} onChange={v=>fld('notes',v)}/>
-          {availHatches.length===0&&<Notice type="warn" message="No un-graded hatch records available right now."/>}
           <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.hatchRecordId||!f.totalGraded}>Save Grading</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
         </div>
       </HModal>)}
@@ -6638,7 +6678,7 @@ function HVaccineProc({state,dispatch}){
 const HS_SEED={
   eggBatches:[{id:'HEB001',batchNo:'HEB-2025-001',sourceFarm:'Crown Breeder Farm',breed:'Ross 308',dateReceived:'2025-01-20',totalQty:15000,rejected:450,graded:14550,status:'Hatched',breederFlockId:'BRD001',notes:''},{id:'HEB002',batchNo:'HEB-2025-002',sourceFarm:'Gold Breeder Farm',breed:'Isa Brown',dateReceived:'2025-01-25',totalQty:12000,rejected:360,graded:11640,status:'Incubating',breederFlockId:'BRD002',notes:''}],
   breederFlocks:[{id:'BRD001',name:'Crown Flock A1',breed:'Ross 308',sourceFarm:'Crown Breeder Farm',ageWeeks:38,henCount:8500,roosterCount:850,status:'Active',notes:'Primary Ross 308 breeder line'},{id:'BRD002',name:'Gold Flock B2',breed:'Isa Brown',sourceFarm:'Gold Breeder Farm',ageWeeks:42,henCount:6000,roosterCount:600,status:'Active',notes:''}],
-  chickGrading:[],
+  chickGrading:[{id:'GRD001',hatchRecordId:'HCH001',date:'2025-02-10',totalGraded:12800,males:6300,females:6100,unsexed:400,gradeA:11500,gradeB:1000,reject:300,notes:'Standard sexing accuracy ~95%'}],
   incubationRecords:[{id:'INC001',batchId:'HEB001',machineId:'SET-A',setDate:'2025-01-20',expectedHatch:'2025-02-10',temperature:37.8,humidity:58,status:'Complete'},{id:'INC002',batchId:'HEB002',machineId:'SET-B',setDate:'2025-01-25',expectedHatch:'2025-02-15',temperature:37.7,humidity:57,status:'Active'}],
   candlingRecords:[{id:'CND001',batchId:'HEB001',date:'2025-01-27',totalCandled:14550,fertile:13200,infertile:900,earlyDead:280,lateDead:170,notes:'Good fertility'}],
   hatchRecords:[{id:'HCH001',batchId:'HEB001',hatchDate:'2025-02-10',eggsSet:14550,totalHatched:12800,culls:320,defects:140,sexed:false,males:0,females:0,notes:''}],
@@ -6842,12 +6882,12 @@ const FM_SEED={
     {id:'RC002',name:'Layer Mash',type:'Layer',version:'v3.0',targetCP:16,targetME:2750,status:'Active',ingredients:[{material:'Maize',pct:58,purpose:'Energy'},{material:'Soybean Meal',pct:18,purpose:'Protein'},{material:'Fish Meal',pct:2,purpose:'Protein'},{material:'Limestone',pct:8,purpose:'Mineral'},{material:'Dicalcium Phosphate',pct:2,purpose:'Mineral'},{material:'Palm Oil',pct:2,purpose:'Energy'},{material:'Salt',pct:0.3,purpose:'Mineral'},{material:'Layer Premix',pct:0.25,purpose:'Additive'},{material:'Lysine',pct:0.1,purpose:'AA'},{material:'Methionine',pct:0.1,purpose:'AA'},{material:'Toxin Binder',pct:0.1,purpose:'Additive'},{material:'Moisture',pct:9.15,purpose:'Other'}],notes:'High calcium layer formulation'},
   ],
   rawMaterials:[
-    {id:'RM001',name:'Maize',category:'Grain',supplier:'Agro Dealers Ltd',unit:'kg',stock:48200,reorder:15000,costPerUnit:250,dateReceived:'2025-01-20',qualityGrade:'A',moisture:13.2,status:'OK',notes:''},
-    {id:'RM002',name:'Soybean Meal',category:'Protein',supplier:'SoyMill Nigeria',unit:'kg',stock:22800,reorder:8000,costPerUnit:520,dateReceived:'2025-01-18',qualityGrade:'A',moisture:11.0,status:'OK',notes:''},
-    {id:'RM003',name:'Fish Meal',category:'Protein',supplier:'Atlantic Fish Co',unit:'kg',stock:6100,reorder:3000,costPerUnit:980,dateReceived:'2025-01-15',qualityGrade:'B',moisture:10.5,status:'OK',notes:''},
-    {id:'RM004',name:'Palm Oil',category:'Fat',supplier:'Okomu Oil',unit:'litre',stock:3400,reorder:1500,costPerUnit:1100,dateReceived:'2025-01-22',qualityGrade:'A',moisture:0,status:'OK',notes:''},
-    {id:'RM005',name:'Limestone',category:'Mineral',supplier:'Rock Minerals Ltd',unit:'kg',stock:9500,reorder:4000,costPerUnit:85,dateReceived:'2025-01-10',qualityGrade:'A',moisture:0,status:'OK',notes:''},
-    {id:'RM006',name:'Broiler Premix',category:'Premix',supplier:'Elanco Nigeria',unit:'kg',stock:380,reorder:200,costPerUnit:4500,dateReceived:'2025-01-25',qualityGrade:'A',moisture:0,status:'OK',notes:''},
+    {id:'RM001',name:'Maize',category:'Grain',supplier:'Agro Dealers Ltd',unit:'kg',stock:48200,reorder:15000,costPerUnit:250,dateReceived:'2025-01-20',qualityGrade:'A',moisture:13.2,protein:9,lotNo:'LOT-20250120-M1AZ',siloId:'SILO-1',capacity:60000,qcStatus:'Pass',status:'OK',notes:''},
+    {id:'RM002',name:'Soybean Meal',category:'Protein',supplier:'SoyMill Nigeria',unit:'kg',stock:22800,reorder:8000,costPerUnit:520,dateReceived:'2025-01-18',qualityGrade:'A',moisture:11.0,protein:44,lotNo:'LOT-20250118-S2BY',siloId:'SILO-2',capacity:30000,qcStatus:'Pass',status:'OK',notes:''},
+    {id:'RM003',name:'Fish Meal',category:'Protein',supplier:'Atlantic Fish Co',unit:'kg',stock:6100,reorder:3000,costPerUnit:980,dateReceived:'2025-01-15',qualityGrade:'B',moisture:10.5,protein:60,lotNo:'LOT-20250115-F3CX',siloId:'SILO-3',capacity:8000,qcStatus:'Pass',status:'OK',notes:''},
+    {id:'RM004',name:'Palm Oil',category:'Fat',supplier:'Okomu Oil',unit:'litre',stock:3400,reorder:1500,costPerUnit:1100,dateReceived:'2025-01-22',qualityGrade:'A',moisture:0,protein:0,lotNo:'LOT-20250122-P4DW',siloId:'',capacity:0,qcStatus:'Pending',status:'OK',notes:''},
+    {id:'RM005',name:'Limestone',category:'Mineral',supplier:'Rock Minerals Ltd',unit:'kg',stock:9500,reorder:4000,costPerUnit:85,dateReceived:'2025-01-10',qualityGrade:'A',moisture:0,protein:0,lotNo:'LOT-20250110-L5EV',siloId:'',capacity:0,qcStatus:'Pending',status:'OK',notes:''},
+    {id:'RM006',name:'Broiler Premix',category:'Premix',supplier:'Elanco Nigeria',unit:'kg',stock:380,reorder:200,costPerUnit:4500,dateReceived:'2025-01-25',qualityGrade:'A',moisture:0,protein:0,lotNo:'LOT-20250125-B6FU',siloId:'',capacity:0,qcStatus:'Pending',status:'OK',notes:''},
     {id:'RM007',name:'Toxin Binder',category:'Additive',supplier:'Biomin Nigeria',unit:'kg',stock:95,reorder:50,costPerUnit:2800,dateReceived:'2025-01-12',qualityGrade:'A',moisture:0,status:'Low',notes:'Order pending'},
   ],
   productionBatches:[
@@ -6857,6 +6897,11 @@ const FM_SEED={
   qcRecords:[{id:'QC001',batchId:'PB001',date:'2025-01-20',moisture:12.1,pelletDurability:94.2,uniformity:'Good',contaminants:'None',result:'Pass',notes:''}],
   finishedInventory:[{id:'FI001',batchId:'PB001',recipeName:'Broiler Starter',qty:2980,unit:'kg',dateProduced:'2025-01-20',expiryDate:'2025-04-20',location:'Store A',status:'Partial'}],
   distributions:[{id:'DS001',finishedInventoryId:'FI001',date:'2025-01-21',destination:'Sunrise Farm',destinationType:'Internal (PoultryOS)',qty:2000,unit:'kg',status:'Delivered',notes:''}],
+  rmQcRecords:[{id:'RMQC001',rawMaterialId:'RM001',date:'2025-01-20',moisture:13.2,protein:9,aflatoxin:8,result:'Pass',notes:'Within spec'},{id:'RMQC002',rawMaterialId:'RM002',date:'2025-01-18',moisture:11.0,protein:44,aflatoxin:5,result:'Pass',notes:''},{id:'RMQC003',rawMaterialId:'RM003',date:'2025-01-15',moisture:10.5,protein:60,aflatoxin:12,result:'Pass',notes:''}],
+  batchLotLinks:[{id:'LNK001',productionBatchId:'PB001',rawMaterialId:'RM001',lotNo:'LOT-20250120-M1AZ',qtyUsed:2739,date:'2025-01-20'},{id:'LNK002',productionBatchId:'PB001',rawMaterialId:'RM002',lotNo:'LOT-20250118-S2BY',qtyUsed:1394,date:'2025-01-20'}],
+  equipment:[{id:'EQ001',name:'Mixer 1',type:'Mixer',status:'Operational',lastMaintenance:'2025-01-05',notes:''},{id:'EQ002',name:'Pelletizer A',type:'Pelletizer',status:'Operational',lastMaintenance:'2025-01-12',notes:''}],
+  maintenanceLogs:[{id:'MX001',equipmentId:'EQ001',type:'Preventive',date:'2025-01-05',downtimeHours:2,cost:15000,returnedToService:true,notes:'Routine bearing check'}],
+  certificates:[],
   financialLogs:[
     {id:'FF001',batchId:'PB001',date:'2025-01-20',type:'Cost',category:'Raw Materials',amount:1050000,notes:''},
     {id:'FF002',batchId:'PB001',date:'2025-01-20',type:'Cost',category:'Labor',amount:85000,notes:''},
@@ -6874,7 +6919,7 @@ const FM_SEED={
 // ── Empty seeds for Live Mode (no demo data)
 const PS_EMPTY={houses:[],batches:[],mortalityLogs:[],feedLogs:[],feedTypes:['Broiler Starter','Broiler Grower','Broiler Finisher','Layer Mash','Layer Concentrate','Chick Mash','Pre-Starter'],vaccinations:[],healthLogs:[],vetTreatments:[],vetDrugs:[],vetPrescriptions:[],vetConsults:[],bioCases:[],bioZones:[],bioSanitation:[],bioAccess:[],bioLockdown:false,bioCompliance:{},customers:[],orders:[],suppliers:[],purchaseOrders:[],financialLogs:[],auditLog:[{id:'AL-LIVE-001',ts:new Date().toISOString(),user:'System',action:'Switched to Live Mode — clean environment initialized',entity:'System',entityId:'',prev:null,next:null}],settings:{orgName:'',location:'',currency:'NGN',currencySymbol:'N',weightUnit:'kg',defaultBatchType:'Broiler',mortalityThreshold:2.0,eggProductionThreshold:75,feedStockDaysThreshold:3,reminderDays:2,enableAlerts:true,enableVaxReminder:true}};
 const HS_EMPTY={eggBatches:[],incubationRecords:[],candlingRecords:[],hatchRecords:[],processingRecords:[],inventory:[],breederFlocks:[],chickGrading:[],customers:[],orders:[],suppliers:[],purchaseOrders:[],financialLogs:[],auditLog:[{id:'HAL-LIVE-001',ts:new Date().toISOString(),user:'System',action:'Switched to Live Mode — clean environment initialized',entity:'System',prev:null,next:null}],settings:{hatcheryName:'',location:'',currency:'NGN',symbol:'N',incubationDays:21,candleDay:7,transferDay:18,targetFertility:90,targetHatchability:85,targetHatchRate:80,alertsEnabled:true}};
-const FM_EMPTY={recipes:[],rawMaterials:[],productionBatches:[],qcRecords:[],finishedInventory:[],distributions:[],customers:[],orders:[],suppliers:[],purchaseOrders:[],financialLogs:[],auditLog:[{id:'FMA-LIVE-001',ts:new Date().toISOString(),user:'System',action:'Switched to Live Mode — clean environment initialized',entity:'System',prev:null,next:null}],settings:{millName:'',location:'',currency:'NGN',weightUnit:'kg',defaultMillId:'MILL-A',targetEfficiency:95,stockAlertDays:7,alertsEnabled:true}};
+const FM_EMPTY={recipes:[],rawMaterials:[],productionBatches:[],qcRecords:[],finishedInventory:[],distributions:[],rmQcRecords:[],batchLotLinks:[],equipment:[],maintenanceLogs:[],certificates:[],customers:[],orders:[],suppliers:[],purchaseOrders:[],financialLogs:[],auditLog:[{id:'FMA-LIVE-001',ts:new Date().toISOString(),user:'System',action:'Switched to Live Mode — clean environment initialized',entity:'System',prev:null,next:null}],settings:{millName:'',location:'',currency:'NGN',weightUnit:'kg',defaultMillId:'MILL-A',targetEfficiency:95,stockAlertDays:7,alertsEnabled:true}};
 
 // ── Data mode storage helpers
 
@@ -7019,7 +7064,7 @@ function FMRecipe({state,dispatch}){
 function FMRawMaterial({state,dispatch,pendingAction,onActionConsumed}){
   const {rawMaterials}=state;
   const [showForm,setShowForm]=useState(false);
-  const [f,setF]=useState({name:'',category:'Grain',supplier:'',unit:'kg',stock:'',reorder:'',costPerUnit:'',qualityGrade:'A',moisture:'',notes:''});
+  const [f,setF]=useState({name:'',category:'Grain',supplier:'',unit:'kg',stock:'',reorder:'',costPerUnit:'',qualityGrade:'A',moisture:'',protein:'',siloId:'',capacity:'',notes:''});
   const [restockTarget,setRestockTarget]=useState(null);
   const fld=(k,v)=>setF(p=>({...p,[k]:v}));
   const CATS=['Grain','Protein','Fat','Mineral','Premix','Amino Acid','Additive','Vitamin','Other'];
@@ -7038,8 +7083,8 @@ function FMRawMaterial({state,dispatch,pendingAction,onActionConsumed}){
   const save=()=>{
     if(!f.name.trim()||!f.stock)return;
     const stock=parseFloat(f.stock)||0,reorder=parseFloat(f.reorder)||0;
-    dispatch({type:'ADD_RM',p:{id:fmuid('RM'),name:f.name.trim(),category:f.category,supplier:f.supplier,unit:f.unit,stock,reorder,costPerUnit:parseFloat(f.costPerUnit)||0,dateReceived:fmToday(),qualityGrade:f.qualityGrade,moisture:parseFloat(f.moisture)||0,status:stock<=0?'Critical':stock<=reorder?'Low':'OK',notes:f.notes}});
-    setF({name:'',category:'Grain',supplier:'',unit:'kg',stock:'',reorder:'',costPerUnit:'',qualityGrade:'A',moisture:'',notes:''});setShowForm(false);
+    dispatch({type:'ADD_RM',p:{id:fmuid('RM'),lotNo:'LOT-'+fmToday().replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),name:f.name.trim(),category:f.category,supplier:f.supplier,unit:f.unit,stock,reorder,costPerUnit:parseFloat(f.costPerUnit)||0,dateReceived:fmToday(),qualityGrade:f.qualityGrade,moisture:parseFloat(f.moisture)||0,protein:parseFloat(f.protein)||0,siloId:f.siloId||null,capacity:parseFloat(f.capacity)||0,qcStatus:'Pending',status:stock<=0?'Critical':stock<=reorder?'Low':'OK',notes:f.notes}});
+    setF({name:'',category:'Grain',supplier:'',unit:'kg',stock:'',reorder:'',costPerUnit:'',qualityGrade:'A',moisture:'',protein:'',siloId:'',capacity:'',notes:''});setShowForm(false);
   };
   const adj=(rm,d)=>{const ns=Math.max(0,rm.stock+d);dispatch({type:'UPDATE_RM',p:{...rm,stock:ns,status:ns<=0?'Critical':ns<=rm.reorder?'Low':'OK'}});};
   const low=rawMaterials.filter(r=>r.status!=='OK');
@@ -7089,8 +7134,276 @@ function FMRawMaterial({state,dispatch,pendingAction,onActionConsumed}){
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Supplier" value={f.supplier} onChange={v=>fld('supplier',v)} placeholder="Supplier name"/><Inp label="Unit" value={f.unit} onChange={v=>fld('unit',v)} placeholder="kg, litre"/></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Qty Received *" type="number" value={f.stock} onChange={v=>fld('stock',v)} placeholder="0"/><Inp label="Reorder Level" type="number" value={f.reorder} onChange={v=>fld('reorder',v)} placeholder="0"/><Inp label="Cost/Unit (N)" type="number" value={f.costPerUnit} onChange={v=>fld('costPerUnit',v)} placeholder="0"/></div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Sel label="Quality Grade" value={f.qualityGrade} onChange={v=>fld('qualityGrade',v)} options={['A','B','C','Rejected']}/><Inp label="Moisture (%)" type="number" value={f.moisture} onChange={v=>fld('moisture',v)} placeholder="0"/></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Protein (%)" type="number" value={f.protein} onChange={v=>fld('protein',v)} placeholder="e.g. 44 for soybean meal"/><Inp label="Silo / Bin ID" value={f.siloId} onChange={v=>fld('siloId',v)} placeholder="e.g. SILO-1"/></div>
+          <Inp label="Silo Capacity (optional, same unit)" type="number" value={f.capacity} onChange={v=>fld('capacity',v)} placeholder="Max this silo can hold"/>
+          <Notice type="info" message="A lot number is generated automatically for traceability and QC. Raw material QC status starts as Pending until tested."/>
           {f.stock&&f.costPerUnit&&<Notice type="info" message={`Intake value: ${fmNgn(parseFloat(f.stock||0)*parseFloat(f.costPerUnit||0))}`}/>}
           <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.name.trim()||!f.stock}>Record Intake</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
+        </div>
+      </FMModal>)}
+    </div>
+  );
+}
+
+function FMRawMaterialQC({state,dispatch}){
+  const {rawMaterials,rmQcRecords=[]}=state;
+  const [showForm,setShowForm]=useState(false);
+  const blank={rawMaterialId:'',moisture:'',protein:'',aflatoxin:'',notes:''};
+  const [f,setF]=useState(blank);
+  const fld=(k,v)=>setF(p=>({...p,[k]:v}));
+  const untested=rawMaterials.filter(r=>!rmQcRecords.some(q=>q.rawMaterialId===r.id));
+  const AFLATOXIN_LIMIT=20; // ppb -- standard max for poultry feed ingredients
+  const save=()=>{
+    if(!f.rawMaterialId)return;
+    const m=parseFloat(f.moisture)||0,af=parseFloat(f.aflatoxin)||0;
+    const result=(af>AFLATOXIN_LIMIT||m>14)?'Fail':'Pass';
+    dispatch({type:'FM_ADD_RM_QC',p:{id:fmuid('RMQC'),rawMaterialId:f.rawMaterialId,date:fmToday(),moisture:m,protein:parseFloat(f.protein)||0,aflatoxin:af,result,notes:f.notes}});
+    setF(blank);setShowForm(false);
+  };
+  const pass=rmQcRecords.filter(q=>q.result==='Pass').length;
+  const fail=rmQcRecords.filter(q=>q.result==='Fail').length;
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Raw Material Quality Control</span><Btn size="sm" onClick={()=>setShowForm(true)}>+ Test Lot</Btn></div>
+      <Notice type="info" message={`Incoming raw material lots are tested for moisture, protein, and aflatoxin before use. Aflatoxin limit: ${AFLATOXIN_LIMIT}ppb. Failed lots should be quarantined, not used in production.`}/>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8}}>
+        <FMKPI label="Tested" value={rmQcRecords.length}/>
+        <FMKPI label="Passed" value={pass}/>
+        <FMKPI label="Failed" value={fail} alert={fail>0}/>
+        <FMKPI label="Untested Lots" value={untested.length} alert={untested.length>0}/>
+      </div>
+      {untested.length>0&&<Notice type="warn" message={`${untested.length} raw material lot(s) have not been tested yet: ${untested.map(r=>r.name).join(', ')}`}/>}
+      {rmQcRecords.length===0?<FMEmpty icon="qc" title="No raw material QC records" sub="Test incoming lots for moisture, protein, and aflatoxin"/>:
+        rmQcRecords.map(qc=>{
+          const rm=rawMaterials.find(r=>r.id===qc.rawMaterialId);
+          return(<div key={qc.id} style={{background:qc.result==='Fail'?T.errBg:'#fff',border:`1px solid ${qc.result==='Fail'?T.errLine:T.line}`,padding:'13px 16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+              <div><div style={{fontSize:13,fontWeight:700,color:T.ink}}>{rm?.name||'--'} <span style={{fontSize:10,color:T.ink4,fontWeight:400}}>{rm?.lotNo||''}</span></div><div style={{fontSize:11,color:T.ink4}}>{fmFmtDate(qc.date)}</div></div>
+              <FMBadge status={qc.result}/>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:7}}>
+              {[['Moisture',`${qc.moisture}%`,qc.moisture>14],['Protein',`${qc.protein}%`,false],['Aflatoxin',`${qc.aflatoxin}ppb`,qc.aflatoxin>AFLATOXIN_LIMIT]].map(([l,v,bad])=>(
+                <div key={l} style={{background:T.bg1,padding:'7px 9px'}}><div style={{fontSize:9,color:T.ink4,textTransform:'uppercase',letterSpacing:.4}}>{l}</div><div className="mono" style={{fontSize:13,fontWeight:700,color:bad?T.err:T.ink}}>{v}</div></div>
+              ))}
+            </div>
+            {qc.notes&&<div style={{fontSize:12,color:T.ink3,marginTop:8}}>{qc.notes}</div>}
+          </div>);
+        })
+      }
+      {showForm&&(<FMModal title="Test Raw Material Lot" onClose={()=>setShowForm(false)}>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <Sel label="Raw Material Lot *" value={f.rawMaterialId} onChange={v=>fld('rawMaterialId',v)} options={[{value:'',label:'Select lot'},...rawMaterials.map(r=>({value:r.id,label:`${r.name} — ${r.lotNo||r.id}`}))]}/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}><Inp label="Moisture (%)" type="number" value={f.moisture} onChange={v=>fld('moisture',v)}/><Inp label="Protein (%)" type="number" value={f.protein} onChange={v=>fld('protein',v)}/><Inp label="Aflatoxin (ppb)" type="number" value={f.aflatoxin} onChange={v=>fld('aflatoxin',v)}/></div>
+          <Inp label="Notes" value={f.notes} onChange={v=>fld('notes',v)}/>
+          <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.rawMaterialId}>Save Test Result</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
+        </div>
+      </FMModal>)}
+    </div>
+  );
+}
+
+function FMSiloManagement({state}){
+  const {rawMaterials}=state;
+  const assigned=rawMaterials.filter(r=>r.siloId);
+  const bySilo={};
+  assigned.forEach(r=>{if(!bySilo[r.siloId])bySilo[r.siloId]=[];bySilo[r.siloId].push(r);});
+  const silos=Object.keys(bySilo).sort();
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Silo & Warehouse Capacity</span></div>
+      <Notice type="info" message="Assign a Silo/Bin ID and capacity when recording raw material intake (Raw Materials tab) to see fill-level tracking here."/>
+      {silos.length===0?<FMEmpty icon="grain" title="No silos assigned yet" sub="Assign a Silo ID to raw materials at intake"/>:
+        silos.map(siloId=>{
+          const items=bySilo[siloId];
+          const totalStock=items.reduce((s,r)=>s+(r.stock||0),0);
+          const totalCap=items.reduce((s,r)=>s+(r.capacity||0),0);
+          const pct=totalCap>0?Math.min(100,Math.round((totalStock/totalCap)*100)):null;
+          const sc=pct==null?T.ink4:pct>=90?T.err:pct>=70?T.warn:T.ok;
+          return(<div key={siloId} style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'14px 16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+              <div><div style={{fontSize:14,fontWeight:700,color:T.ink}}>{siloId}</div><div style={{fontSize:12,color:T.ink4}}>{items.map(r=>r.name).join(', ')}</div></div>
+              <div style={{textAlign:'right'}}><div className="mono" style={{fontSize:18,fontWeight:700,color:sc}}>{pct!=null?`${pct}%`:'--'}</div><div style={{fontSize:10,color:T.ink4}}>{pct!=null?'of capacity':'no capacity set'}</div></div>
+            </div>
+            {pct!=null&&<div style={{height:8,background:T.bg2,overflow:'hidden',marginBottom:8}}><div style={{width:`${pct}%`,height:'100%',background:sc,transition:'width .4s'}}/></div>}
+            <div style={{fontSize:11,color:T.ink4}}>{fmFmt(totalStock)} of {totalCap>0?fmFmt(totalCap):'—'} {items[0]?.unit||''}</div>
+          </div>);
+        })
+      }
+    </div>
+  );
+}
+
+function FMLotTraceability({state,dispatch}){
+  const {rawMaterials,productionBatches,batchLotLinks=[]}=state;
+  const [showForm,setShowForm]=useState(false);
+  const blank={productionBatchId:'',rawMaterialId:'',qtyUsed:''};
+  const [f,setF]=useState(blank);
+  const fld=(k,v)=>setF(p=>({...p,[k]:v}));
+  const [mode,setMode]=useState('forward'); // forward: batch -> lots | backward: lot -> batches
+  const [lookupId,setLookupId]=useState('');
+  const save=()=>{
+    if(!f.productionBatchId||!f.rawMaterialId)return;
+    const rm=rawMaterials.find(r=>r.id===f.rawMaterialId);
+    dispatch({type:'FM_ADD_LOT_LINK',p:{id:fmuid('LNK'),productionBatchId:f.productionBatchId,rawMaterialId:f.rawMaterialId,lotNo:rm?.lotNo||f.rawMaterialId,qtyUsed:parseFloat(f.qtyUsed)||0,date:fmToday()}});
+    setF(blank);setShowForm(false);
+  };
+  const forwardResult=lookupId?batchLotLinks.filter(l=>l.productionBatchId===lookupId):[];
+  const backwardResult=lookupId?batchLotLinks.filter(l=>l.rawMaterialId===lookupId):[];
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Lot-Level Traceability</span><Btn size="sm" onClick={()=>setShowForm(true)}>+ Link Lot to Batch</Btn></div>
+      <Notice type="info" message="Record which raw material lots went into each production batch. This lets you trace a finished batch back to its source lots (or find every batch affected by a specific lot, for recalls)."/>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={()=>{setMode('forward');setLookupId('');}} style={{flex:1,padding:'9px',border:`1px solid ${mode==='forward'?T.ink:T.line}`,background:mode==='forward'?T.bg2:T.bg0,color:T.ink,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Batch → Lots Used</button>
+        <button onClick={()=>{setMode('backward');setLookupId('');}} style={{flex:1,padding:'9px',border:`1px solid ${mode==='backward'?T.ink:T.line}`,background:mode==='backward'?T.bg2:T.bg0,color:T.ink,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Lot → Batches Affected</button>
+      </div>
+      {mode==='forward'?(
+        <Sel label="Select Production Batch" value={lookupId} onChange={setLookupId} options={[{value:'',label:'Select batch'},...productionBatches.map(b=>({value:b.id,label:b.batchNo}))]}/>
+      ):(
+        <Sel label="Select Raw Material Lot" value={lookupId} onChange={setLookupId} options={[{value:'',label:'Select lot'},...rawMaterials.map(r=>({value:r.id,label:`${r.name} — ${r.lotNo||r.id}`}))]}/>
+      )}
+      {lookupId&&mode==='forward'&&(forwardResult.length===0?<FMEmpty icon="grain" title="No lots linked" sub="No raw material lots have been linked to this batch yet"/>:
+        forwardResult.map(l=>{const rm=rawMaterials.find(r=>r.id===l.rawMaterialId);return(
+          <div key={l.id} style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'12px 14px',display:'flex',justifyContent:'space-between'}}>
+            <div><div style={{fontSize:13,fontWeight:600,color:T.ink}}>{rm?.name||'--'}</div><div style={{fontSize:11,color:T.ink4}}>Lot {l.lotNo} · {fmFmtDate(l.date)}</div></div>
+            <div className="mono" style={{fontSize:13,fontWeight:700,color:T.ink}}>{fmFmt(l.qtyUsed)} {rm?.unit||''}</div>
+          </div>
+        );}))}
+      {lookupId&&mode==='backward'&&(backwardResult.length===0?<FMEmpty icon="grain" title="No batches linked" sub="This lot has not been linked to any production batch yet"/>:
+        backwardResult.map(l=>{const b=productionBatches.find(x=>x.id===l.productionBatchId);return(
+          <div key={l.id} style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'12px 14px',display:'flex',justifyContent:'space-between'}}>
+            <div><div style={{fontSize:13,fontWeight:600,color:T.ink}}>{b?.batchNo||'--'}</div><div style={{fontSize:11,color:T.ink4}}>{b?.recipeName||''} · {fmFmtDate(l.date)}</div></div>
+            <div className="mono" style={{fontSize:13,fontWeight:700,color:T.ink}}>{fmFmt(l.qtyUsed)} used</div>
+          </div>
+        );}))}
+      {showForm&&(<FMModal title="Link Raw Material Lot to Batch" onClose={()=>setShowForm(false)}>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <Sel label="Production Batch *" value={f.productionBatchId} onChange={v=>fld('productionBatchId',v)} options={[{value:'',label:'Select batch'},...productionBatches.map(b=>({value:b.id,label:b.batchNo}))]}/>
+          <Sel label="Raw Material Lot *" value={f.rawMaterialId} onChange={v=>fld('rawMaterialId',v)} options={[{value:'',label:'Select lot'},...rawMaterials.map(r=>({value:r.id,label:`${r.name} — ${r.lotNo||r.id}`}))]}/>
+          <Inp label="Quantity Used" type="number" value={f.qtyUsed} onChange={v=>fld('qtyUsed',v)}/>
+          <div style={{display:'flex',gap:8}}><Btn onClick={save} disabled={!f.productionBatchId||!f.rawMaterialId}>Save Link</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
+        </div>
+      </FMModal>)}
+    </div>
+  );
+}
+
+function FMEquipment({state,dispatch}){
+  const {equipment=[],maintenanceLogs=[]}=state;
+  const [showEqForm,setShowEqForm]=useState(false);
+  const [showMxForm,setShowMxForm]=useState(false);
+  const eqBlank={name:'',type:'Mixer',status:'Operational',notes:''};
+  const mxBlank={equipmentId:'',type:'Preventive',date:fmToday(),downtimeHours:'',cost:'',returnedToService:true,notes:''};
+  const [ef,setEf]=useState(eqBlank);
+  const [mf,setMf]=useState(mxBlank);
+  const TYPES=['Mixer','Pelletizer','Extruder','Hammer Mill','Conveyor','Cooler','Bagging Line','Generator','Other'];
+  const saveEq=()=>{
+    if(!ef.name.trim())return;
+    dispatch({type:'FM_ADD_EQUIPMENT',p:{id:fmuid('EQ'),...ef,name:ef.name.trim(),lastMaintenance:null}});
+    setEf(eqBlank);setShowEqForm(false);
+  };
+  const saveMx=()=>{
+    if(!mf.equipmentId)return;
+    dispatch({type:'FM_ADD_MAINTENANCE',p:{id:fmuid('MX'),...mf,downtimeHours:parseFloat(mf.downtimeHours)||0,cost:parseFloat(mf.cost)||0}});
+    setMf(mxBlank);setShowMxForm(false);
+  };
+  const totalDowntime=maintenanceLogs.reduce((s,m)=>s+(m.downtimeHours||0),0);
+  const totalCost=maintenanceLogs.reduce((s,m)=>s+(m.cost||0),0);
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Equipment & Maintenance</span><div style={{display:'flex',gap:8}}><Btn size="sm" variant="secondary" onClick={()=>setShowEqForm(true)}>+ Register Equipment</Btn><Btn size="sm" onClick={()=>setShowMxForm(true)} disabled={equipment.length===0}>+ Log Maintenance</Btn></div></div>
+      {equipment.length===0&&<Notice type="info" message="Register your mill equipment first, then log downtime and preventive maintenance against it."/>}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))',gap:8}}>
+        <FMKPI label="Equipment" value={equipment.length}/>
+        <FMKPI label="Under Maintenance" value={equipment.filter(e=>e.status==='Under Maintenance').length} alert={equipment.some(e=>e.status==='Under Maintenance')}/>
+        <FMKPI label="Total Downtime" value={`${totalDowntime}h`}/>
+        <FMKPI label="Maintenance Cost" value={fmNgn(totalCost)}/>
+      </div>
+      {equipment.length===0?<FMEmpty icon="qc" title="No equipment registered" sub="Register mixers, pelletizers, extruders and other mill equipment"/>:
+        equipment.map(eq=>{
+          const logs=maintenanceLogs.filter(m=>m.equipmentId===eq.id);
+          return(<div key={eq.id} style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'14px 16px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+              <div><div style={{fontSize:14,fontWeight:700,color:T.ink}}>{eq.name}</div><div style={{fontSize:12,color:T.ink4}}>{eq.type} · {logs.length} maintenance log{logs.length!==1?'s':''}{eq.lastMaintenance?` · last: ${fmFmtDate(eq.lastMaintenance)}`:''}</div></div>
+              <FMBadge status={eq.status}/>
+            </div>
+            {logs.slice(0,3).map(m=>(
+              <div key={m.id} style={{fontSize:12,color:T.ink3,padding:'5px 0',borderTop:`1px solid ${T.line}`}}>{fmFmtDate(m.date)} · {m.type} · {m.downtimeHours}h downtime{m.cost>0?` · ${fmNgn(m.cost)}`:''}</div>
+            ))}
+            {eq.notes&&<div style={{fontSize:12,color:T.ink3,marginTop:6}}>{eq.notes}</div>}
+          </div>);
+        })
+      }
+      {showEqForm&&(<FMModal title="Register Equipment" onClose={()=>setShowEqForm(false)}>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <Inp label="Equipment Name *" value={ef.name} onChange={v=>setEf(p=>({...p,name:v}))} placeholder="e.g. Mixer 1"/>
+          <Sel label="Type" value={ef.type} onChange={v=>setEf(p=>({...p,type:v}))} options={TYPES}/>
+          <Sel label="Status" value={ef.status} onChange={v=>setEf(p=>({...p,status:v}))} options={['Operational','Under Maintenance','Out of Service']}/>
+          <Inp label="Notes" value={ef.notes} onChange={v=>setEf(p=>({...p,notes:v}))}/>
+          <div style={{display:'flex',gap:8}}><Btn onClick={saveEq} disabled={!ef.name.trim()}>Register</Btn><Btn variant="secondary" onClick={()=>setShowEqForm(false)}>Cancel</Btn></div>
+        </div>
+      </FMModal>)}
+      {showMxForm&&(<FMModal title="Log Maintenance" onClose={()=>setShowMxForm(false)}>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <Sel label="Equipment *" value={mf.equipmentId} onChange={v=>setMf(p=>({...p,equipmentId:v}))} options={[{value:'',label:'Select equipment'},...equipment.map(e=>({value:e.id,label:e.name}))]}/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Sel label="Type" value={mf.type} onChange={v=>setMf(p=>({...p,type:v}))} options={['Preventive','Corrective','Breakdown','Inspection']}/><Inp label="Date" type="date" value={mf.date} onChange={v=>setMf(p=>({...p,date:v}))}/></div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}><Inp label="Downtime (hours)" type="number" value={mf.downtimeHours} onChange={v=>setMf(p=>({...p,downtimeHours:v}))}/><Inp label="Cost (N)" type="number" value={mf.cost} onChange={v=>setMf(p=>({...p,cost:v}))}/></div>
+          <div style={{display:'flex',gap:8,alignItems:'center',cursor:'pointer'}} onClick={()=>setMf(p=>({...p,returnedToService:!p.returnedToService}))}><div style={{width:18,height:18,border:`2px solid ${mf.returnedToService?T.ok:T.line}`,background:mf.returnedToService?T.ok:'#fff',display:'flex',alignItems:'center',justifyContent:'center'}}>{mf.returnedToService&&<span style={{color:'#fff',fontSize:12}}>✓</span>}</div><span style={{fontSize:13,color:T.ink}}>Returned to service (Operational)</span></div>
+          <Inp label="Notes" value={mf.notes} onChange={v=>setMf(p=>({...p,notes:v}))}/>
+          <div style={{display:'flex',gap:8}}><Btn onClick={saveMx} disabled={!mf.equipmentId}>Save Log</Btn><Btn variant="secondary" onClick={()=>setShowMxForm(false)}>Cancel</Btn></div>
+        </div>
+      </FMModal>)}
+    </div>
+  );
+}
+
+function FMCertificates({state,dispatch}){
+  const {productionBatches,qcRecords,rmQcRecords=[],batchLotLinks=[],rawMaterials,certificates=[]}=state;
+  const [showForm,setShowForm]=useState(false);
+  const [batchId,setBatchId]=useState('');
+  const eligibleBatches=productionBatches.filter(b=>b.status==='Completed');
+  const issue=()=>{
+    if(!batchId)return;
+    const b=productionBatches.find(x=>x.id===batchId);
+    const qc=qcRecords.find(q=>q.batchId===batchId);
+    const lots=batchLotLinks.filter(l=>l.productionBatchId===batchId);
+    dispatch({type:'FM_ADD_CERTIFICATE',p:{
+      id:fmuid('CERT'),certNo:'COA-'+fmToday().replace(/-/g,'')+'-'+b.batchNo.slice(-4),
+      productionBatchId:batchId,batchNo:b.batchNo,recipeName:b.recipeName,issuedDate:fmToday(),
+      finishedQC:qc||null,
+      lotRefs:lots.map(l=>({lotNo:l.lotNo,rawMaterialId:l.rawMaterialId})),
+    }});
+    setBatchId('');setShowForm(false);
+  };
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}><span style={{fontSize:16,fontWeight:700,color:T.ink}}>Certificates of Analysis</span><Btn size="sm" onClick={()=>setShowForm(true)} disabled={eligibleBatches.length===0}>+ Issue Certificate</Btn></div>
+      {eligibleBatches.length===0&&<Notice type="info" message="Certificates can be issued once a production batch is marked Completed."/>}
+      {certificates.length===0?<FMEmpty icon="qc" title="No certificates issued" sub="Issue a Certificate of Analysis for a completed batch"/>:
+        certificates.map(c=>(
+          <div key={c.id} style={{background:'#fff',border:`1px solid ${T.line}`,padding:'16px 18px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+              <div><div style={{fontSize:15,fontWeight:800,color:T.ink}}>{c.certNo}</div><div style={{fontSize:12,color:T.ink4}}>{c.batchNo} · {c.recipeName} · Issued {fmFmtDate(c.issuedDate)}</div></div>
+            </div>
+            {c.finishedQC?(
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:10}}>
+                {[['Moisture',`${c.finishedQC.moisture}%`],['Pellet Durability',`${c.finishedQC.pelletDurability}%`],['Result',c.finishedQC.result]].map(([l,v])=>(
+                  <div key={l} style={{background:T.bg1,padding:'7px 9px'}}><div style={{fontSize:9,color:T.ink4,textTransform:'uppercase',letterSpacing:.4}}>{l}</div><div className="mono" style={{fontSize:13,fontWeight:700,color:T.ink}}>{v}</div></div>
+                ))}
+              </div>
+            ):<div style={{fontSize:12,color:T.ink4,marginBottom:10}}>No finished-batch QC record on file for this batch.</div>}
+            <div style={{fontSize:11,fontWeight:700,color:T.ink4,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Source Raw Material Lots</div>
+            {c.lotRefs.length===0?<div style={{fontSize:12,color:T.ink4}}>No lot links recorded for this batch.</div>:
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>{c.lotRefs.map((lr,i)=>{const rm=rawMaterials.find(r=>r.id===lr.rawMaterialId);return(<span key={i} style={{fontSize:11,background:T.bg1,padding:'4px 8px',color:T.ink3}}>{rm?.name||'--'}: {lr.lotNo}</span>);})}</div>
+            }
+          </div>
+        ))
+      }
+      {showForm&&(<FMModal title="Issue Certificate of Analysis" onClose={()=>setShowForm(false)}>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <Sel label="Completed Batch *" value={batchId} onChange={setBatchId} options={[{value:'',label:'Select batch'},...eligibleBatches.map(b=>({value:b.id,label:b.batchNo}))]}/>
+          <Notice type="info" message="The certificate will pull the batch's finished QC result and any linked raw material lots automatically."/>
+          <div style={{display:'flex',gap:8}}><Btn onClick={issue} disabled={!batchId}>Issue Certificate</Btn><Btn variant="secondary" onClick={()=>setShowForm(false)}>Cancel</Btn></div>
         </div>
       </FMModal>)}
     </div>
@@ -7506,7 +7819,7 @@ function FeedMillModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
   const __fmFarmId=(typeof window!=='undefined' && window.__psaActiveFarmId)||null;
   const __fmSig=useRef({});
   const __fmReady=useRef(false);
-  const FM_SYNC_COLLECTIONS=['recipes','rawMaterials','productionBatches','qcRecords','finishedInventory','distributions','customers','orders','suppliers','purchaseOrders','financialLogs'];
+  const FM_SYNC_COLLECTIONS=['recipes','rawMaterials','productionBatches','qcRecords','finishedInventory','distributions','rmQcRecords','batchLotLinks','equipment','maintenanceLogs','certificates','customers','orders','suppliers','purchaseOrders','financialLogs'];
   useEffect(()=>{
     let cancelled=false;
     (async()=>{
@@ -7543,7 +7856,7 @@ function FeedMillModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
     })();
     return ()=>{cancelled=true;};
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[fm.recipes,fm.rawMaterials,fm.productionBatches,fm.qcRecords,fm.finishedInventory,fm.distributions,fm.customers,fm.orders,fm.suppliers,fm.purchaseOrders,fm.financialLogs,__fmFarmId]);
+  },[fm.recipes,fm.rawMaterials,fm.productionBatches,fm.qcRecords,fm.finishedInventory,fm.distributions,fm.rmQcRecords,fm.batchLotLinks,fm.equipment,fm.maintenanceLogs,fm.certificates,fm.customers,fm.orders,fm.suppliers,fm.purchaseOrders,fm.financialLogs,__fmFarmId]);
 
   const role=activeUser?.role||'Owner / Director';
 
@@ -7551,8 +7864,13 @@ function FeedMillModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
     {id:'cmd',label:'Command Center',icon:'cmd'},
     {id:'recipe',label:'Formulation & Recipe',icon:'recipe'},
     {id:'intake',label:'Raw Materials',icon:'intake'},
+    {id:'rmqc',label:'Raw Material QC',icon:'rmqc'},
+    {id:'silo',label:'Silo Management',icon:'silo'},
     {id:'batch',label:'Production Batch',icon:'batch'},
+    {id:'lots',label:'Lot Traceability',icon:'lots'},
+    {id:'equipment',label:'Equipment & Maintenance',icon:'equipment'},
     {id:'qc',label:'Quality Control',icon:'qc'},
+    {id:'cert',label:'Certificates',icon:'cert'},
     {id:'stock',label:'Finished Inventory',icon:'stock'},
     {id:'distrib',label:'Distribution',icon:'distrib'},
     {id:'orders',label:'Sales & Procurement',icon:'orders'},
@@ -7575,8 +7893,13 @@ function FeedMillModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
     if(id==='cmd')     content=<FMCmdCenter         state={fm} dataMode={dataMode}/>;
     else if(id==='recipe')  content=<FMRecipe            state={fm} dispatch={dispatch}/>;
     else if(id==='intake')  content=<FMRawMaterial       state={fm} dispatch={dispatch} pendingAction={actionFor('intake')} onActionConsumed={consumePendingAction}/>;
+    else if(id==='rmqc')    content=<FMRawMaterialQC     state={fm} dispatch={dispatch}/>;
+    else if(id==='silo')    content=<FMSiloManagement    state={fm} dispatch={dispatch}/>;
     else if(id==='batch')   content=<FMBatchEngine       state={fm} dispatch={dispatch} licenseCapacity={capacity} pendingAction={actionFor('batch')} onActionConsumed={consumePendingAction}/>;
+    else if(id==='lots')    content=<FMLotTraceability   state={fm} dispatch={dispatch}/>;
+    else if(id==='equipment')content=<FMEquipment        state={fm} dispatch={dispatch}/>;
     else if(id==='qc')      content=<FMQualityControl    state={fm} dispatch={dispatch} pendingAction={actionFor('qc')} onActionConsumed={consumePendingAction}/>;
+    else if(id==='cert')    content=<FMCertificates      state={fm} dispatch={dispatch}/>;
     else if(id==='stock')   content=<FMFinishedInventory state={fm} pendingAction={actionFor('stock')} onActionConsumed={consumePendingAction}/>;
     else if(id==='distrib') content=<FMDistribution      state={fm} dispatch={dispatch}/>;
     else if(id==='orders')  content=<SalesProcurementEngine state={fm} dispatch={dispatch} cfg={{unit:'kg',unitSing:'kg',products:['Broiler Starter','Broiler Finisher','Layer Mash','Grower Mash','Chick Mash','Concentrate','Custom Mix'],procureItems:['Maize','Soybean Meal','Wheat Offal','Fish Meal','Bone Meal','Premix','Packaging Bags','Other']}}/>;
