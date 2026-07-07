@@ -217,7 +217,15 @@ export default {
            LEFT JOIN plans p ON p.id = s.plan_id
            ORDER BY s.period_end`
         ).all();
-        return json({ data: rows.results }, corsHeaders);
+        // Nest farm/plan to match what the dashboard UI expects (mirrors
+        // the same fix applied to /api/farm-members).
+        const data = rows.results.map(r => ({
+          id: r.id, farm_id: r.farm_id, plan_id: r.plan_id, status: r.status,
+          period_start: r.period_start, period_end: r.period_end,
+          farm: { name: r.farm_name },
+          plan: { name: r.plan_name, tier: r.plan_tier, annual_price_minor: r.annual_price_minor },
+        }));
+        return json({ data }, corsHeaders);
       }
       if (path === '/api/platform/tickets' && method === 'GET') {
         if (!await isPlatformAdmin(env, user.id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
@@ -277,6 +285,7 @@ function json(data, corsHeaders, status = 200) {
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'https://poultrysuite.agorox.africa',
+  'https://poultrysuite.pages.dev',
 ];
 
 function resolveOrigin(request, env) {
