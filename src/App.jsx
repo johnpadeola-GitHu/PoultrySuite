@@ -3,6 +3,7 @@ import PoultrySuiteAfrica from './components/PoultrySuiteAfrica.jsx';
 import { ErrorScreen, OfflineBanner, useOnlineStatus } from './components/SystemStates.jsx';
 import PWAPrompts from './components/PWAPrompts.jsx';
 import { CurrencyProvider, useCurrency } from './currency/index.js';
+import { LanguageProvider } from './i18n/index.js';
 import { AuthProvider, useAuth } from './auth/AuthProvider.jsx';
 import AuthGate from './auth/AuthGate.jsx';
 import DeviceGate from './devices/DeviceGate.jsx';
@@ -114,11 +115,13 @@ export default function App() {
     <RootErrorBoundary>
       <OfflineBanner visible={!online} />
       <div style={{ paddingTop: online ? 0 : 38 }}>
-        <AuthProvider>
-          <AuthGate>
-            <ViewRouter />
-          </AuthGate>
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <AuthGate>
+              <ViewRouter />
+            </AuthGate>
+          </AuthProvider>
+        </LanguageProvider>
       </div>
       <PWAPrompts />
     </RootErrorBoundary>

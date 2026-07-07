@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useReducer, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import { useCurrency, getCountryByName, CurrencySwitcher } from '../currency/index.js';
+import { useLanguage, LanguageSwitcher } from '../i18n/index.js';
 import DeviceManager from './DeviceManager.jsx';
 import DevicePinManager from './DevicePinManager.jsx';
 import { lockNow } from '../auth/devicePins.js';
@@ -4103,6 +4104,7 @@ const PS_SEED={
 // ══════════════════════════════════════════════════════════
 
 function CommandCenter({state,dispatch,dataMode}){
+  const {t}=useLanguage();
   const {batches,mortalityLogs,feedLogs,vaccinations,healthLogs,financialLogs,settings}=state;
   const today=todayStr();
   const active=batches.filter(b=>b.status==='Active');
@@ -4123,17 +4125,17 @@ function CommandCenter({state,dispatch,dataMode}){
   const totalCrates=eggSaleLogs.reduce((s,f)=>s+(f.qty||0),0);
   return(
     <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      {dataMode==='demo'&&<div style={{background:T.warnBg,border:`1px solid ${T.warnLine}`,padding:'8px 14px',fontSize:12,color:T.warn,fontWeight:600}}>Demo Mode — sample data displayed</div>}
-      {quar.length>0&&<div style={{background:T.errBg,border:`1px solid ${T.errLine}`,padding:'10px 14px',display:'flex',gap:10,alignItems:'center'}}><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={T.err} strokeWidth="1.75" strokeLinecap="square" strokeLinejoin="miter"><rect x="3" y="3" width="18" height="18"/><path d="M12 8V13M12 16H12.01"/></svg><span style={{fontSize:13,fontWeight:600,color:T.err}}>Quarantine Active: {quar.map(b=>b.name).join(', ')}</span></div>}
+      {dataMode==='demo'&&<div style={{background:T.warnBg,border:`1px solid ${T.warnLine}`,padding:'8px 14px',fontSize:12,color:T.warn,fontWeight:600}}>{t('cmdPoultry.demoMode')}</div>}
+      {quar.length>0&&<div style={{background:T.errBg,border:`1px solid ${T.errLine}`,padding:'10px 14px',display:'flex',gap:10,alignItems:'center'}}><svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={T.err} strokeWidth="1.75" strokeLinecap="square" strokeLinejoin="miter"><rect x="3" y="3" width="18" height="18"/><path d="M12 8V13M12 16H12.01"/></svg><span style={{fontSize:13,fontWeight:600,color:T.err}}>{t('cmdPoultry.quarantineActive')}: {quar.map(b=>b.name).join(', ')}</span></div>}
       {overdueMort&&<div style={{background:T.warnBg,border:`1px solid ${T.warnLine}`,padding:'10px 14px',fontSize:12,color:T.warn}}>Mortality rate {mortRate}% exceeds threshold {settings.mortalityThreshold||2.0}%</div>}
       {overdueVax.length>0&&<div style={{background:T.warnBg,border:`1px solid ${T.warnLine}`,padding:'10px 14px',fontSize:12,color:T.warn}}>{overdueVax.length} vaccination{overdueVax.length>1?'s':''} overdue</div>}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))',gap:10}}>
-        <KPICard label="Active Batches" value={active.length} alert={quar.length>0}/>
-        <KPICard label="Live Birds" value={fmtN(totalBirds)} alert={false}/>
-        <KPICard label="Mortality Rate" value={mortRate+'%'} alert={overdueMort}/>
-        <KPICard label="Total Feed (kg)" value={fmtN(totalFeed)}/>
-        <KPICard label="Net P&L" value={ngn(Math.abs(netPL))} sub={netPL>=0?'Profit':'Loss'} alert={netPL<0}/>
-        {layingBatches.length>0&&<KPICard label="Egg Crates" value={fmtN(totalCrates)} sub="all time"/>}
+        <KPICard label={t('cmdPoultry.activeBatches')} value={active.length} alert={quar.length>0}/>
+        <KPICard label={t('cmdPoultry.liveBirds')} value={fmtN(totalBirds)} alert={false}/>
+        <KPICard label={t('cmdPoultry.mortalityRate')} value={mortRate+'%'} alert={overdueMort}/>
+        <KPICard label={t('cmdPoultry.totalFeed')} value={fmtN(totalFeed)}/>
+        <KPICard label={t('cmdPoultry.netPL')} value={ngn(Math.abs(netPL))} sub={netPL>=0?t('cmdPoultry.profit'):t('cmdPoultry.loss')} alert={netPL<0}/>
+        {layingBatches.length>0&&<KPICard label={t('cmdPoultry.eggCrates')} value={fmtN(totalCrates)} sub={t('cmdPoultry.allTime')}/>}
       </div>
 
       {/* Visual KPI reports */}
@@ -5622,6 +5624,7 @@ function EngineBreadcrumb({moduleName,engineLabel,onHome}){
 }
 
 function PoultryModule({navSignal,capacity,license,tier,activeUser,onUpdateLicense,initialSeed,dataMode,onSwitchToLive,onRestoreTraining}){
+  const {t}=useLanguage();
   const [ps,dispatch]=useReducer(psReducer,initialSeed||PS_SEED);
   const [engine,setEngine]=useState('cmd');
   useEffect(()=>{if(typeof window!=="undefined"){if(!window.__psState)window.__psState={};window.__psState.poultry=ps;}},[ps]);
@@ -5725,19 +5728,19 @@ function PoultryModule({navSignal,capacity,license,tier,activeUser,onUpdateLicen
   const role=activeUser?.role||'Owner / Director';
 
   const ALL_ENGINES=[
-    {id:'cmd',label:'Command Center',icon:'cmd'},
-    {id:'daily',label:'Daily Log',icon:'daily'},
-    {id:'house',label:'Houses & Batches',icon:'house'},
-    {id:'vax',label:'Vaccinations',icon:'vax'},
-    {id:'feed',label:'Feed Tracking',icon:'feed'},
-    {id:'health',label:'Health & Mortality',icon:'health'},
-    {id:'vet',label:'Veterinary & Medical',icon:'vet'},
-    {id:'bio',label:'Quarantine & Biosecurity',icon:'bio'},
-    {id:'orders',label:'Sales & Procurement',icon:'orders'},
-    {id:'finance',label:'Financials',icon:'finance'},
-    {id:'audit',label:'Audit Log',icon:'audit'},
-    {id:'settings',label:'Settings & Backup',icon:'settings'},
-    {id:'help',label:'Help & Docs',icon:'help'},
+    {id:'cmd',label:t('navPoultry.cmd'),icon:'cmd'},
+    {id:'daily',label:t('navPoultry.daily'),icon:'daily'},
+    {id:'house',label:t('navPoultry.house'),icon:'house'},
+    {id:'vax',label:t('navPoultry.vax'),icon:'vax'},
+    {id:'feed',label:t('navPoultry.feed'),icon:'feed'},
+    {id:'health',label:t('navPoultry.health'),icon:'health'},
+    {id:'vet',label:t('navPoultry.vet'),icon:'vet'},
+    {id:'bio',label:t('navPoultry.bio'),icon:'bio'},
+    {id:'orders',label:t('navPoultry.orders'),icon:'orders'},
+    {id:'finance',label:t('navPoultry.finance'),icon:'finance'},
+    {id:'audit',label:t('navPoultry.audit'),icon:'audit'},
+    {id:'settings',label:t('navPoultry.settings'),icon:'settings'},
+    {id:'help',label:t('navPoultry.help'),icon:'help'},
   ];
   const ENGINES=ALL_ENGINES.filter(e=>can(role,POULTRY_ENGINE_RES[e.id],'view'));
 
@@ -5898,6 +5901,7 @@ function HBadge({status}){
 }
 
 function HCmdCenter({state,dataMode}){
+  const {t}=useLanguage();
   const {eggBatches,candlingRecords,hatchRecords,processingRecords,settings,financialLogs}=state;
   const active=eggBatches.filter(e=>['Received','Incubating','Candling','Transfer','Hatching'].includes(e.status));
   const totalSet=eggBatches.reduce((s,e)=>s+e.graded,0);
@@ -5921,12 +5925,12 @@ function HCmdCenter({state,dataMode}){
         {lowInv.length>0&&<Notice type="warn" message={`Stock alert: ${lowInv.map(i=>`${i.item} (${i.status})`).join(', ')}`}/>}
       </div>)}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',gap:10}}>
-        <HKPI label="Active Cycles" value={active.length} sub={`${eggBatches.length} total batches`}/>
-        <HKPI label="Eggs in System" value={hFmt(active.reduce((s,e)=>s+e.graded,0))} unit="eggs"/>
-        <HKPI label="Fertility Rate" value={globalFertility} unit={globalFertility!=='--'?'%':''} green={!fertAlert&&totalCandled>0} alert={fertAlert}/>
-        <HKPI label="Hatchability" value={globalHatch} unit={globalHatch!=='--'?'%':''} green={!hatchAlert&&totalSet>0} alert={hatchAlert}/>
-        <HKPI label="DOC Output" value={hFmt(totalDOC)} unit="chicks"/>
-        <HKPI label="Net P&L" value={hNgn(totalRev-totalCostAll)} green={totalRev>totalCostAll} alert={totalRev<totalCostAll&&totalRev>0}/>
+        <HKPI label={t('cmdHatchery.activeCycles')} value={active.length} sub={`${eggBatches.length} ${t('cmdHatchery.totalBatches')}`}/>
+        <HKPI label={t('cmdHatchery.eggsInSystem')} value={hFmt(active.reduce((s,e)=>s+e.graded,0))} unit="eggs"/>
+        <HKPI label={t('cmdHatchery.fertilityRate')} value={globalFertility} unit={globalFertility!=='--'?'%':''} green={!fertAlert&&totalCandled>0} alert={fertAlert}/>
+        <HKPI label={t('cmdHatchery.hatchability')} value={globalHatch} unit={globalHatch!=='--'?'%':''} green={!hatchAlert&&totalSet>0} alert={hatchAlert}/>
+        <HKPI label={t('cmdHatchery.docOutput')} value={hFmt(totalDOC)} unit="chicks"/>
+        <HKPI label={t('cmdHatchery.netPL')} value={hNgn(totalRev-totalCostAll)} green={totalRev>totalCostAll} alert={totalRev<totalCostAll&&totalRev>0}/>
       </div>
 
       {/* Visual KPI reports */}
@@ -6691,6 +6695,7 @@ const HS_SEED={
 };
 
 function HatcheryModule({navSignal,capacity,license,activeUser,onUpdateLicense,dataMode,onSwitchToLive,onRestoreTraining,initialSeed}){
+  const {t}=useLanguage();
   const [hs,dispatch]=useReducer(hsReducer,initialSeed||HS_SEED);
   const [engine,setEngine]=useState('cmd');
   useEffect(()=>{if(typeof window!=='undefined'){if(!window.__psState)window.__psState={};window.__psState.hatchery=hs;}},[hs]);
@@ -6741,20 +6746,20 @@ function HatcheryModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
   const role=activeUser?.role||'Owner / Director';
 
   const ALL_ENGINES=[
-    {id:'cmd',label:'Command Center',icon:'cmd'},
-    {id:'intake',label:'Egg Intake',icon:'intake'},
-    {id:'incubation',label:'Incubation',icon:'incubation'},
-    {id:'candling',label:'Candling',icon:'candling'},
-    {id:'hatch',label:'Hatch Output',icon:'hatch'},
-    {id:'breeder',label:'Breeder Flocks',icon:'breeder'},
-    {id:'grading',label:'Chick Grading',icon:'grading'},
-    {id:'vaccine',label:'Vaccination & Processing',icon:'vaccine'},
-    {id:'inventory',label:'Inventory',icon:'inventory'},
-    {id:'orders',label:'Sales & Procurement',icon:'orders'},
-    {id:'finance',label:'Financials',icon:'finance'},
-    {id:'audit',label:'Audit Log',icon:'audit'},
-    {id:'settings',label:'Settings & Backup',icon:'settings'},
-    {id:'help',label:'Help & Docs',icon:'help'},
+    {id:'cmd',label:t('navHatchery.cmd'),icon:'cmd'},
+    {id:'intake',label:t('navHatchery.intake'),icon:'intake'},
+    {id:'incubation',label:t('navHatchery.incubation'),icon:'incubation'},
+    {id:'candling',label:t('navHatchery.candling'),icon:'candling'},
+    {id:'hatch',label:t('navHatchery.hatch'),icon:'hatch'},
+    {id:'breeder',label:t('navHatchery.breeder'),icon:'breeder'},
+    {id:'grading',label:t('navHatchery.grading'),icon:'grading'},
+    {id:'vaccine',label:t('navHatchery.vaccine'),icon:'vaccine'},
+    {id:'inventory',label:t('navHatchery.inventory'),icon:'inventory'},
+    {id:'orders',label:t('navHatchery.orders'),icon:'orders'},
+    {id:'finance',label:t('navHatchery.finance'),icon:'finance'},
+    {id:'audit',label:t('navHatchery.audit'),icon:'audit'},
+    {id:'settings',label:t('navHatchery.settings'),icon:'settings'},
+    {id:'help',label:t('navHatchery.help'),icon:'help'},
   ];
   const ENGINES=ALL_ENGINES.filter(e=>can(role,HATCHERY_ENGINE_RES[e.id],'view'));
 
@@ -6924,6 +6929,7 @@ const FM_EMPTY={recipes:[],rawMaterials:[],productionBatches:[],qcRecords:[],fin
 
 
 function FMCmdCenter({state,dataMode}){
+  const {t}=useLanguage();
   const {productionBatches,rawMaterials,finishedInventory,financialLogs}=state;
   const completed=productionBatches.filter(b=>b.status==='Completed');
   const inProg=productionBatches.filter(b=>b.status==='In Progress');
@@ -6940,11 +6946,11 @@ function FMCmdCenter({state,dataMode}){
       {lowStock.length>0&&<Notice type={lowStock.some(r=>r.status==='Critical')?'error':'warn'} message={`Stock alert: ${lowStock.map(r=>`${r.name} (${r.status})`).join(', ')}`}/>}
       {inProg.length>0&&<Notice type="info" message={`${inProg.length} batch${inProg.length>1?'es':''} in progress`}/>}
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:10}}>
-        <FMKPI label="Total Batches" value={productionBatches.length} sub={`${inProg.length} running`}/>
-        <FMKPI label="Total Produced" value={fmFmt(completed.reduce((s,b)=>s+b.actualQty,0))} unit="kg"/>
-        <FMKPI label="Avg Efficiency" value={avgEff} unit={avgEff!=='--'?'%':''} green={parseFloat(avgEff)>=(state.settings.targetEfficiency||95)&&completed.length>0}/>
-        <FMKPI label="Finished Stock" value={fmFmt(finStock)} unit="kg" green={finStock>0}/>
-        <FMKPI label="Net P&L" value={fmNgn(totalRev-totalCost)} green={totalRev>totalCost} alert={totalRev<totalCost&&totalRev>0}/>
+        <FMKPI label={t('cmdFeedmill.totalBatches')} value={productionBatches.length} sub={`${inProg.length} ${t('cmdFeedmill.running')}`}/>
+        <FMKPI label={t('cmdFeedmill.totalProduced')} value={fmFmt(completed.reduce((s,b)=>s+b.actualQty,0))} unit="kg"/>
+        <FMKPI label={t('cmdFeedmill.avgEfficiency')} value={avgEff} unit={avgEff!=='--'?'%':''} green={parseFloat(avgEff)>=(state.settings.targetEfficiency||95)&&completed.length>0}/>
+        <FMKPI label={t('cmdFeedmill.finishedStock')} value={fmFmt(finStock)} unit="kg" green={finStock>0}/>
+        <FMKPI label={t('cmdFeedmill.netPL')} value={fmNgn(totalRev-totalCost)} green={totalRev>totalCost} alert={totalRev<totalCost&&totalRev>0}/>
       </div>
 
       {/* Visual KPI reports */}
@@ -7805,6 +7811,7 @@ function FMSettingsBackup({state,dispatch,dataMode,onSwitchToLive,onRestoreTrain
 }
 
 function FeedMillModule({navSignal,capacity,license,activeUser,onUpdateLicense,dataMode,onSwitchToLive,onRestoreTraining,initialSeed}){
+  const {t}=useLanguage();
   const [fm,dispatch]=useReducer(fmReducer,initialSeed||FM_SEED);
   const [engine,setEngine]=useState('cmd');
   useEffect(()=>{if(typeof window!=='undefined'){if(!window.__psState)window.__psState={};window.__psState.feedmill=fm;}},[fm]);
@@ -7855,22 +7862,22 @@ function FeedMillModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
   const role=activeUser?.role||'Owner / Director';
 
   const ALL_ENGINES=[
-    {id:'cmd',label:'Command Center',icon:'cmd'},
-    {id:'recipe',label:'Formulation & Recipe',icon:'recipe'},
-    {id:'intake',label:'Raw Materials',icon:'intake'},
-    {id:'rmqc',label:'Raw Material QC',icon:'rmqc'},
-    {id:'batch',label:'Production Batch',icon:'batch'},
-    {id:'lots',label:'Lot Traceability',icon:'lots'},
-    {id:'equipment',label:'Equipment & Maintenance',icon:'equipment'},
-    {id:'qc',label:'Quality Control',icon:'qc'},
-    {id:'cert',label:'Certificates',icon:'cert'},
-    {id:'stock',label:'Finished Inventory',icon:'stock'},
-    {id:'distrib',label:'Distribution',icon:'distrib'},
-    {id:'orders',label:'Sales & Procurement',icon:'orders'},
-    {id:'finance',label:'Financials',icon:'finance'},
-    {id:'audit',label:'Audit Log',icon:'audit'},
-    {id:'settings',label:'Settings & Backup',icon:'settings'},
-    {id:'help',label:'Help & Docs',icon:'help'},
+    {id:'cmd',label:t('navFeedmill.cmd'),icon:'cmd'},
+    {id:'recipe',label:t('navFeedmill.recipe'),icon:'recipe'},
+    {id:'intake',label:t('navFeedmill.intake'),icon:'intake'},
+    {id:'rmqc',label:t('navFeedmill.rmqc'),icon:'rmqc'},
+    {id:'batch',label:t('navFeedmill.batch'),icon:'batch'},
+    {id:'lots',label:t('navFeedmill.lots'),icon:'lots'},
+    {id:'equipment',label:t('navFeedmill.equipment'),icon:'equipment'},
+    {id:'qc',label:t('navFeedmill.qc'),icon:'qc'},
+    {id:'cert',label:t('navFeedmill.cert'),icon:'cert'},
+    {id:'stock',label:t('navFeedmill.stock'),icon:'stock'},
+    {id:'distrib',label:t('navFeedmill.distrib'),icon:'distrib'},
+    {id:'orders',label:t('navFeedmill.orders'),icon:'orders'},
+    {id:'finance',label:t('navFeedmill.finance'),icon:'finance'},
+    {id:'audit',label:t('navFeedmill.audit'),icon:'audit'},
+    {id:'settings',label:t('navFeedmill.settings'),icon:'settings'},
+    {id:'help',label:t('navFeedmill.help'),icon:'help'},
   ];
   const ENGINES=ALL_ENGINES.filter(e=>can(role,FEEDMILL_ENGINE_RES[e.id],'view'));
 
@@ -8013,6 +8020,7 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
             </div>}
             {!demoActive&&daysLeft<30&&<div style={{fontSize:11,fontWeight:600,color:T.warn,background:T.warnBg,border:`1px solid ${T.warnLine}`,padding:'3px 9px'}}>{daysLeft}d left</div>}
             <CurrencySwitcher/>
+            <LanguageSwitcher/>
             <NotificationBell notifs={allNotifs} onOpen={()=>setNotifOpen(true)}/>
             <button onClick={()=>{addAudit('User signed out',activeUser?.name||'User');onLogout();}}
               style={{background:'none',border:`1px solid ${T.line}`,fontSize:12,color:T.ink3,cursor:'pointer',padding:'7px 13px',fontFamily:'inherit',fontWeight:500,minHeight:36,lineHeight:1,transition:'background 0.12s'}}
