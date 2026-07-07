@@ -4,10 +4,10 @@ compatibility_date = "2024-12-01"
 
 [vars]
 CORS_ORIGIN = "https://poultrysuite.agorox.africa"
-JWT_SECRET = "CHANGE-THIS-TO-A-LONG-RANDOM-SECRET"
-PAYSTACK_SECRET_KEY = ""
+# JWT_SECRET and PAYSTACK_SECRET_KEY are set via `wrangler secret put`
+# (see below) — NOT stored here, since this file gets committed to git.
 
 [[d1_databases]]
 binding = "DB"
 database_name = "poultrysuite-db"
-database_id = ""  # Fill after running: wrangler d1 create poultrysuite-db
+database_id = "9f0ae947-5094-4dc1-8749-6058d4303b51"

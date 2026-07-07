@@ -49,6 +49,7 @@ export default function PairingScreen({ onBound, diag, activeFarm }) {
           <div>farm: {activeFarm?.id ? activeFarm.id.slice(0, 8) + '…' : 'none'}</div>
           <div>usage: {diag.usage ? `used ${diag.usage.used} / limit ${diag.usage.limit}${diag.usage.error ? ' ERR:' + diag.usage.error : ''}` : '—'}</div>
           <div>regError: {diag.regError ? String(diag.regError) : 'none'}</div>
+          <div>authError: {diag.authError ? String(diag.authError) : 'none'}</div>
           <div>step: {diag.step}</div>
         </div>
       )}

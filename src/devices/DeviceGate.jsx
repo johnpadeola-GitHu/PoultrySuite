@@ -9,7 +9,7 @@ import PairingScreen from './PairingScreen.jsx';
 //   • Owner's FIRST device (farm has 0 devices) → auto-register silently.
 //   • Otherwise → show PairingScreen (enter a code, or self-register).
 export default function DeviceGate({ children }) {
-  const { role, activeFarm } = useAuth();
+  const { role, activeFarm, error: authError } = useAuth();
   const [bound, setBound] = useState(() => isDeviceBound());
   const [checking, setChecking] = useState(!isDeviceBound());
   const [diag, setDiag] = useState({ role: null, usage: null, regError: null, step: 'init' });
@@ -18,12 +18,13 @@ export default function DeviceGate({ children }) {
     let cancelled = false;
     if (bound) { touchThisDevice(); return; }
 
-    // Not bound yet. If this is the farm owner or a super admin, register this
-    // device with no friction (their own farm — no pairing code needed), as
-    // long as the farm is under its device limit.
+    // Not bound yet. If this is the farm owner, register this device with
+    // no friction (their own farm — no pairing code needed), as long as
+    // the farm is under its device limit. Role values come from
+    // farm_members.role: 'owner' | 'admin' | 'manager' | 'member' | 'viewer'.
     (async () => {
-      const isOwnerLike = role === 'farm_owner' || role === 'super_admin';
-      setDiag((d) => ({ ...d, role, step: 'checking-role', isOwnerLike }));
+      const isOwnerLike = role === 'owner';
+      setDiag((d) => ({ ...d, role, authError, step: 'checking-role', isOwnerLike }));
       if (isOwnerLike) {
         const u = await getDeviceUsage();
         setDiag((d) => ({ ...d, usage: u, step: 'got-usage' }));
@@ -41,7 +42,7 @@ export default function DeviceGate({ children }) {
     })();
 
     return () => { cancelled = true; };
-  }, [bound, role]);
+  }, [bound, role, authError]);
 
   if (bound) return children;
   if (checking) {

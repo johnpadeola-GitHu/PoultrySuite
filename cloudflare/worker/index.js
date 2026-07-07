@@ -54,8 +54,8 @@ export default {
     const method = request.method;
 
     // CORS
-    if (method === 'OPTIONS') return corsResponse(env);
-    const corsHeaders = corsBase(env);
+    if (method === 'OPTIONS') return corsResponse(env, request);
+    const corsHeaders = corsBase(env, request);
 
     try {
       // ── Auth routes (no JWT required) ──
@@ -73,6 +73,12 @@ export default {
       // ── Paystack webhook (no JWT, HMAC verified) ──
       if (path === '/api/paystack-webhook' && method === 'POST')
         return json(await paystackWebhook(env, request), corsHeaders);
+
+      // ── Plans (public — visible before signup, e.g. a pricing page) ──
+      if (path === '/api/plans' && method === 'GET') {
+        const rows = await env.DB.prepare('SELECT * FROM plans WHERE is_active = 1 ORDER BY display_order').all();
+        return json({ data: rows.results }, corsHeaders);
+      }
 
       // ── All other routes require a valid JWT ──
       const user = await verifyJWT(request, env);
@@ -93,11 +99,17 @@ export default {
       if (path === '/api/farm-members' && method === 'GET') {
         const userId = url.searchParams.get('user_id');
         const rows = await env.DB.prepare(
-          `SELECT fm.role, f.id as farm_id, f.name as farm_name, f.created_at as farm_created_at
+          `SELECT fm.role, f.id as f_id, f.name as f_name, f.created_at as f_created_at
            FROM farm_members fm JOIN farms f ON f.id = fm.farm_id
            WHERE fm.user_id = ?`
         ).bind(userId).all();
-        return json({ data: rows.results }, corsHeaders);
+        // Nest farm data to match the shape the frontend expects (mirrors
+        // the old Supabase embed syntax `.select('role, farm:farms(*)')`).
+        const data = rows.results.map(r => ({
+          role: r.role,
+          farm: { id: r.f_id, name: r.f_name, created_at: r.f_created_at },
+        }));
+        return json({ data }, corsHeaders);
       }
 
       // Devices
@@ -174,12 +186,6 @@ export default {
           "UPDATE farm_records SET deleted = 1, updated_at = datetime('now') WHERE farm_id = ? AND collection = ? AND record_id = ?"
         ).bind(farmId, collection, recordId).run();
         return json({ ok: true }, corsHeaders);
-      }
-
-      // Plans
-      if (path === '/api/plans' && method === 'GET') {
-        const rows = await env.DB.prepare('SELECT * FROM plans WHERE is_active = 1 ORDER BY display_order').all();
-        return json({ data: rows.results }, corsHeaders);
       }
 
       // Billing
@@ -266,18 +272,31 @@ function json(data, corsHeaders, status = 200) {
   });
 }
 
-function corsBase(env) {
+// Allowed origins: local dev + production. Add more here if you test from
+// other URLs (e.g. a Cloudflare Pages preview URL).
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'https://poultrysuite.agorox.africa',
+];
+
+function resolveOrigin(request, env) {
+  const origin = request?.headers?.get('Origin') || '';
+  if (ALLOWED_ORIGINS.includes(origin)) return origin;
+  return env.CORS_ORIGIN || ALLOWED_ORIGINS[0];
+}
+
+function corsBase(env, request) {
   return {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || '*',
+    'Access-Control-Allow-Origin': resolveOrigin(request, env),
     'Access-Control-Allow-Credentials': 'true',
   };
 }
 
-function corsResponse(env) {
+function corsResponse(env, request) {
   return new Response(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': env.CORS_ORIGIN || '*',
+      'Access-Control-Allow-Origin': resolveOrigin(request, env),
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Max-Age': '86400',
@@ -332,7 +351,16 @@ async function authSignUp(env, { email, password }) {
   const salt = uid();
   const hash = await hashPassword(password, salt);
   await env.DB.prepare('INSERT INTO users (id, email, password_hash, salt) VALUES (?, ?, ?, ?)').bind(id, email, hash, salt).run();
-  await env.DB.prepare('INSERT INTO profiles (id) VALUES (?)').bind(id).run();
+
+  // Auto-provision: every new user gets their own farm as owner, matching
+  // the trigger the old Supabase setup had. Without this, sign-up succeeds
+  // but the user has no farm and gets stuck on the device-pairing screen.
+  const farmId = uid();
+  const farmName = (email.split('@')[0] || 'New Farm') + "'s Farm";
+  await env.DB.prepare('INSERT INTO farms (id, name) VALUES (?, ?)').bind(farmId, farmName).run();
+  await env.DB.prepare('INSERT INTO farm_members (id, farm_id, user_id, role) VALUES (?, ?, ?, ?)').bind(uid(), farmId, id, 'owner').run();
+  await env.DB.prepare('INSERT INTO profiles (id, active_farm_id) VALUES (?, ?)').bind(id, farmId).run();
+
   const token = await createJWT({ sub: id, email }, env.JWT_SECRET);
   return { user: { id, email }, token };
 }
