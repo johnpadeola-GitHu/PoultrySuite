@@ -11,7 +11,7 @@ export function AuthShell({ children }) {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 20px', background: T.bg }}>
       <div style={{ width: '100%', maxWidth: 420 }}>
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src="./pwa-192x192.png" alt="PoultrySuite Africa"
+          <img src="/icon-192.png" alt="PoultrySuite Africa"
             style={{ width: 64, height: 64, margin: '0 auto 12px', display: 'block', objectFit: 'contain' }} />
           <div style={{ fontSize: 20, fontWeight: 700, color: T.ink }}>PoultrySuite Africa</div>
           <div style={{ fontSize: 12, color: T.ink3, marginTop: 2 }}>Farm Management</div>
