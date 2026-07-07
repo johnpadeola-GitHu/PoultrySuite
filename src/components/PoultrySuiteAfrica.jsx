@@ -7707,7 +7707,7 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
       {showUpgrade&&(
         <div style={{position:'fixed',inset:0,zIndex:99998,background:'rgba(15,23,20,0.55)',display:'flex',alignItems:'flex-start',justifyContent:'center',overflowY:'auto',padding:'40px 16px'}} onClick={(e)=>{if(e.target===e.currentTarget)setShowUpgrade(false);}}>
           <div style={{background:'#fff',maxWidth:760,width:'100%',padding:'28px 26px',boxShadow:'0 20px 60px rgba(0,0,0,0.3)',marginBottom:40}}>
-            <UpgradeScreen onClose={()=>setShowUpgrade(false)}/>
+            <UpgradeScreen onClose={()=>setShowUpgrade(false)} license={license} onUpdateLicense={onUpdateLicense}/>
           </div>
         </div>
       )}

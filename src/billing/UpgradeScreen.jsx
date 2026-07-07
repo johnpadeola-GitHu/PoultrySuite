@@ -18,7 +18,7 @@ const FEATURES = {
   enterprise:['Up to 15 devices','Everything in Professional','FeedMillOS module','Multi-branch ready','Dedicated support'],
 };
 
-export default function UpgradeScreen({ onClose }) {
+export default function UpgradeScreen({ onClose, license, onUpdateLicense }) {
   const { activeFarm, role, refreshContext } = useAuth();
   const [plans, setPlans] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -34,7 +34,7 @@ export default function UpgradeScreen({ onClose }) {
     })();
   }, []);
 
-  const isOwner = role === 'farm_owner' || role === 'super_admin';
+  const isOwner = role === 'owner';
 
   const buy = async (tier) => {
     setMsg(null);
@@ -51,6 +51,20 @@ export default function UpgradeScreen({ onClose }) {
         if (sub) {
           setMsg({ kind:'ok', text:'Your plan is now active. Thank you!' });
           refreshContext && refreshContext();
+          // Bridge: mark the LOCAL license as paid too, since the rest of
+          // the app (Dashboard, PaymentGateScreen, the demo gate) checks
+          // license.paid directly — a D1 subscription alone doesn't
+          // unlock the local UI without this.
+          if (onUpdateLicense && license) {
+            const periodEnd = sub.period_end ? new Date(sub.period_end) : new Date(Date.now() + 365*24*60*60*1000);
+            onUpdateLicense({
+              ...license,
+              paid: true,
+              tier,
+              issued: new Date().toISOString().split('T')[0],
+              expiry: periodEnd.toISOString().split('T')[0],
+            });
+          }
         } else {
           setMsg({ kind:'ok', text:'Payment received. Your plan will activate shortly — you can refresh in a moment.' });
         }
@@ -79,15 +93,6 @@ export default function UpgradeScreen({ onClose }) {
       {msg && (
         <div style={{ padding:'10px 14px', fontSize:13, lineHeight:1.5, background: msg.kind==='ok'?C.okBg:C.errBg, color: msg.kind==='ok'?C.ok:C.err, border:`1px solid ${msg.kind==='ok'?'#BBF7D0':'#FECACA'}` }}>{msg.text}</div>
       )}
-
-      {/* Temporary diagnostic */}
-      <div style={{background:'#F3F4F6',border:'1px solid #E5E7EB',padding:'10px 12px',fontSize:11,fontFamily:'monospace',color:'#374151',lineHeight:1.7,wordBreak:'break-word'}}>
-        <div style={{fontWeight:700,marginBottom:4}}>Billing diagnostic:</div>
-        <div>role: <b>{JSON.stringify(role)}</b> (isOwner: <b>{String(isOwner)}</b>)</div>
-        <div>activeFarm.id: <b>{JSON.stringify(activeFarm?.id)}</b></div>
-        <div>isBillingConfigured: <b>{String(isBillingConfigured)}</b></div>
-        <div>plans loaded: <b>{plans.length}</b></div>
-      </div>
 
       {loadingPlans ? (
         <div style={{ padding:'40px', textAlign:'center', color:C.ink4, fontSize:14 }}>Loading plans…</div>
