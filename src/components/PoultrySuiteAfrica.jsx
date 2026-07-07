@@ -2971,6 +2971,12 @@ const HELP_ACCOUNTS_SECTION={
         {t:'Batch',d:'A group of birds placed together, tracked through their lifecycle.'},
       ]
     },
+    {
+      title:'Switching Language',
+      preview:'Change the app language between English and French.',
+      body:'A language switcher sits in the top bar next to the currency switcher, showing your current language as a two-letter code (EN or FR). Tap it to choose English or Français.\n\nYour choice is saved on this device and applies immediately across navigation menus and Command Center screens in all three modules. Each device remembers its own language setting independently — useful if different staff on different tablets prefer different languages.\n\nMore of the app is being translated over time; areas not yet translated will continue to show in English even when French is selected.',
+      terms:[]
+    },
   ]
 };
 const HELP_TROUBLESHOOTING_SECTION={
@@ -3262,7 +3268,7 @@ const HELP_CONTENT={
           {
             title:'Backing Up Your Data',
             preview:'How to export and restore your PoultryOS data.',
-            body:'PoultryOS stores data in browser memory. This means data is lost if you close or refresh the tab without exporting.\n\nTo export:\n1. Go to Settings & Backup > Backup & Data tab.\n2. Click "Download Backup JSON."\n3. A JSON file is saved to your device. Name it clearly (e.g., PoultryOS_2025-01-28.json).\n\nTo restore:\n1. Go to Settings & Backup > Backup & Data tab.\n2. Click "Import Backup File."\n3. Select your previously exported JSON file.\n4. All data is restored instantly.\n\nBest practice: Export after every session. Store backups in Google Drive or a cloud folder.',
+            body:'Your data syncs automatically to your farm\'s secure cloud database across all registered devices — you do not need to manually back up to avoid losing data day-to-day.\n\nFor an offline copy (e.g. before a major change, or to keep an external archive):\n1. Go to Settings & Backup > Backup & Data tab.\n2. Click "Download Backup JSON."\n3. A JSON file is saved to your device. Name it clearly (e.g., PoultryOS_2025-01-28.json).\n\nTo restore from a downloaded file:\n1. Go to Settings & Backup > Backup & Data tab.\n2. Click "Import Backup File."\n3. Select your previously exported JSON file.\n4. All data is restored instantly.',
             terms:[
               {t:'JSON Backup',d:'A complete export of all PoultryOS data in a portable file format. Can be imported to restore the exact state.'},
             ]
@@ -3416,6 +3422,25 @@ const HELP_CONTENT={
           },
         ]
       },
+      {
+        id:'traceability',label:'Breeder Flocks & Grading',icon:'overview',
+        topics:[
+          {
+            title:'Breeder Flock Traceability',
+            preview:'Trace fertility and hatch-rate performance back to the source breeder flock.',
+            body:'The Breeder Flocks screen lets you register the flocks supplying your hatching eggs — name, breed, source farm, age, and hen/rooster counts.\n\nLinking eggs to a flock: when recording egg intake, select a Breeder Flock from the dropdown (only appears once you\'ve registered at least one flock). This links that batch of eggs to its source.\n\nWhat you get: once linked, the Breeder Flocks screen automatically calculates each flock\'s average fertility % and hatch rate %, aggregated across every egg batch traced back to it. This lets you compare breeder lines and identify which flocks perform best over time — not just per batch.',
+            terms:[
+              {t:'Traceability',d:'The ability to track a result (like hatch rate) back to its original source (the breeder flock).'},
+            ]
+          },
+          {
+            title:'Chick Sexing & Grading',
+            preview:'Record male/female counts and quality grading after each hatch.',
+            body:'After recording a hatch in Hatch Output, use the Chick Grading screen to log the post-hatch processing step: how many chicks were sexed as male/female/unsexed, and how many fell into Grade A, Grade B, or Reject quality categories.\n\nWhy this is separate from Hatch Output: sexing and grading is typically a distinct physical processing step performed after hatching, often by specialized staff — keeping it as its own record keeps your data accurate to how the work actually happens.\n\nThe screen calculates your male ratio and Grade A rate automatically, useful for tracking sexing accuracy and chick quality trends over time.',
+            terms:[]
+          },
+        ]
+      },
       {...HELP_TROUBLESHOOTING_SECTION},
       {
         id:'terms',label:'Glossary',icon:'glossary',
@@ -3539,7 +3564,45 @@ const HELP_CONTENT={
           {
             title:'Backing Up FeedMillOS Data',
             preview:'How to export and restore your complete FeedMillOS data.',
-            body:'1. Go to Settings & Backup > Backup & Data tab.\n2. Click "Download Backup."\n3. A JSON file containing all recipes, raw materials, batches, QC, inventory, distribution, and financial data is saved.\n\nTo restore:\n1. Go to Settings & Backup > Backup & Data tab.\n2. Click "Import Backup" and select your JSON file.\n3. All data is instantly restored.\n\nBackup after every session. FeedMillOS stores data in browser memory — it will be lost if you close or refresh the browser tab without exporting.',
+            body:'Your data syncs automatically to your farm\'s secure cloud database across all registered devices — you do not need to manually back up to avoid losing data day-to-day.\n\nFor an offline copy (e.g. before a major change, or to keep an external archive):\n1. Go to Settings & Backup > Backup & Data tab.\n2. Click "Download Backup."\n3. A JSON file containing all recipes, raw materials, batches, QC, inventory, distribution, and financial data is saved.\n\nTo restore from a downloaded file:\n1. Go to Settings & Backup > Backup & Data tab.\n2. Click "Import Backup" and select your JSON file.\n3. All data is instantly restored.',
+            terms:[]
+          },
+        ]
+      },
+      {
+        id:'quality-traceability',label:'QC, Traceability & Equipment',icon:'overview',
+        topics:[
+          {
+            title:'Raw Material Quality Control',
+            preview:'Test incoming raw material lots for moisture, protein, and aflatoxin before use.',
+            body:'The Raw Material QC screen is separate from the Quality Control screen — it tests INCOMING ingredients (maize, soybean meal, etc.) at intake, before they enter production, rather than testing the finished feed.\n\nHow it works: after recording a raw material intake, open Raw Material QC and select the lot to test. Enter moisture %, protein %, and aflatoxin level (ppb). A lot fails automatically if aflatoxin exceeds 20ppb or moisture exceeds 14% — both are standard food-safety thresholds for poultry feed ingredients.\n\nUntested lots are flagged on this screen so nothing slips through unchecked.',
+            terms:[
+              {t:'Aflatoxin',d:'A toxin produced by mold that can contaminate grains and protein meals — dangerous to poultry above safe thresholds.'},
+              {t:'ppb',d:'Parts per billion — the standard unit for measuring aflatoxin contamination.'},
+            ]
+          },
+          {
+            title:'Lot-Level Traceability',
+            preview:'Trace a finished batch back to its raw material lots, or find every batch affected by a specific lot.',
+            body:'Every raw material intake is automatically assigned a lot number. The Lot Traceability screen lets you link specific lots to the production batches that consumed them.\n\nTwo lookup directions:\n- Batch → Lots Used: select a production batch to see exactly which raw material lots went into it.\n- Lot → Batches Affected: select a raw material lot to see every batch that used it.\n\nThis second direction is critical for food-safety recalls — if a raw material lot is later found to be contaminated, you can immediately identify every finished batch that needs to be pulled.',
+            terms:[]
+          },
+          {
+            title:'Silo & Warehouse Capacity',
+            preview:'Track fill-level per physical silo, not just per material.',
+            body:'When recording raw material intake, optionally assign a Silo/Bin ID and its capacity. The Raw Materials screen then offers a "By Silo" view (toggle at the top) showing fill-level bars per physical silo — how full each container actually is, not just how much stock you have of a given ingredient.\n\nMultiple materials can share a silo ID if they\'re physically stored together; the fill bar sums their combined stock against the silo\'s total capacity.',
+            terms:[]
+          },
+          {
+            title:'Equipment & Maintenance Tracking',
+            preview:'Register mill equipment and log preventive or corrective maintenance.',
+            body:'Register your mixers, pelletizers, extruders, and other equipment in the Equipment & Maintenance screen. For each piece of equipment, log maintenance events: Preventive, Corrective, Breakdown, or Inspection, with downtime hours and cost.\n\nLogging maintenance with "Returned to service" checked automatically updates that equipment\'s status back to Operational. The screen totals your downtime hours and maintenance cost across all equipment, useful for identifying which machines need replacing.',
+            terms:[]
+          },
+          {
+            title:'Certificates of Analysis',
+            preview:'Issue a Certificate of Analysis for a completed batch, combining QC and lot data automatically.',
+            body:'Once a production batch is marked Completed, you can issue a Certificate of Analysis for it from the Certificates screen. The certificate automatically pulls in:\n\n- The batch\'s finished-product QC result (moisture, pellet durability, pass/fail)\n- Every raw material lot linked to that batch via Lot Traceability\n\nThis gives you one document per batch suitable for sharing with B2B customers who require documented quality assurance.',
             terms:[]
           },
         ]
