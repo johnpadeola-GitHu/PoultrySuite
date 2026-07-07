@@ -1535,7 +1535,7 @@ function validatePhone(phone,country){const p=(phone||'').replace(/[\s\-().]/g,'
 function validateEmail(email){const e=(email||'').trim();if(!e)return{ok:false,msg:'Email address is required.'};if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e))return{ok:false,msg:'Enter a valid email address.'};return{ok:true,msg:''};}
 
 // ── License helpers
-const PAYSTACK_CONFIG={publicKey:'pk_live_YOUR_PAYSTACK_KEY',plans:{single:'PLN_single',professional:'PLN_professional',enterprise:'PLN_enterprise'}};
+const PAYSTACK_CONFIG={publicKey:(typeof import.meta!=='undefined'&&import.meta.env&&import.meta.env.VITE_PAYSTACK_PUBLIC_KEY)||'',plans:{single:'PLN_single',professional:'PLN_professional',enterprise:'PLN_enterprise'}};
 async function getDeviceId(){try{const s=await window.storage.get('psa:device_id');if(s)return s.value;}catch(_){}const raw=[navigator.userAgent,navigator.language,screen.width+'x'+screen.height].join('|');let h=5381;for(let i=0;i<raw.length;i++){h=((h<<5)+h)^raw.charCodeAt(i);h>>>=0;}const id='DEV-'+h.toString(16).toUpperCase().padStart(8,'0');try{await window.storage.set('psa:device_id',id);}catch(_){}return id;}
 const DEMO_DAYS=7;
 async function getDemoRecord(){try{const r=await window.storage.get('psa:demo');return r?JSON.parse(r.value):null;}catch(_){return null;}}
@@ -2342,7 +2342,17 @@ function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActiv
       currency:'NGN',
       ref:'PSA-'+Date.now()+'-'+Math.random().toString(36).slice(2,7).toUpperCase(),
       metadata:{deviceId,tier,modules:modules.join(',')},
-      callback:(response)=>{setKeyErr('Payment successful! Ref: '+response.reference+'. Enter your license key below.');setShowKeyEntry(true);},
+      callback:(response)=>{
+        setActivating(true);
+        try{
+          const result=buildLicense(tier,modules,license.capacity,license.profile,license.pin,{paid:true,deviceId,expiry:new Date(Date.now()+365*86400000).toISOString().split('T')[0]});
+          onActivateKey(result);
+        }catch(e){
+          setKeyErr('Payment succeeded (Ref: '+response.reference+') but activation failed automatically. Please contact AgoroX support with this reference.');
+          setShowKeyEntry(true);
+        }
+        setActivating(false);
+      },
       onClose:()=>{},
     });
     if(handler){handler.openIframe();}else{setKeyErr('Paystack not loaded. Enter license key manually.');setShowKeyEntry(true);}
