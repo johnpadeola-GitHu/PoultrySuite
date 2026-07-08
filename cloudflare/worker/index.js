@@ -500,19 +500,61 @@ async function authSignIn(env, { email, password }) {
   return { user: { id: user.id, email: user.email }, token };
 }
 
+// Sends the reset-password email via Resend's HTTP API. Failures here are
+// logged but never thrown back to the caller — authResetPassword must
+// always respond the same way whether or not the email exists (and now,
+// whether or not the email send itself succeeds), so this can't leak
+// account existence or become a way to probe email delivery.
+async function sendResetEmail(env, email, resetToken) {
+  if (!env.RESEND_API_KEY) {
+    console.error('[Reset email] RESEND_API_KEY not configured — email not sent');
+    return;
+  }
+  const appUrl = env.CORS_ORIGIN || 'https://poultrysuite.agorox.africa';
+  const resetLink = `${appUrl}/?reset_token=${resetToken}`;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.RESET_EMAIL_FROM || 'PoultrySuite Africa <noreply@agorox.africa>',
+        to: [email],
+        subject: 'Reset your PoultrySuite Africa password',
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+            <h2 style="color:#0f5540;">Reset your password</h2>
+            <p>We received a request to reset the password for your PoultrySuite Africa account.</p>
+            <p><a href="${resetLink}" style="display:inline-block;background:#0f5540;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;margin:16px 0;">Reset Password</a></p>
+            <p style="color:#6B7280;font-size:13px;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email — your password won't be changed.</p>
+            <p style="color:#6B7280;font-size:13px;">If the button doesn't work, copy this link: ${resetLink}</p>
+          </div>
+        `,
+      }),
+    });
+    if (!res.ok) {
+      console.error('[Reset email] Resend API error:', res.status, await res.text());
+    }
+  } catch (err) {
+    console.error('[Reset email] send failed:', err.message || err);
+  }
+}
+
 async function authResetPassword(env, { email }) {
   const user = await env.DB.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').bind(email).first();
   if (!user) return { ok: true }; // Don't reveal if user exists
   const resetToken = uid();
   const expires = new Date(Date.now() + 3600000).toISOString();
   await env.DB.prepare('UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?').bind(resetToken, expires, user.id).run();
-  // TODO: send email with reset link containing resetToken
-  // For now, the token is stored but no email is sent — integrate with Resend later
+  await sendResetEmail(env, email, resetToken);
   return { ok: true };
 }
 
 async function authUpdatePassword(env, { token, password }) {
   if (!token || !password) return { error: 'Token and password required' };
+  if (password.length < 8) return { error: 'Password must be at least 8 characters' };
   const user = await env.DB.prepare("SELECT id FROM users WHERE reset_token = ? AND reset_expires > datetime('now')").bind(token).first();
   if (!user) return { error: 'Invalid or expired reset token' };
   const salt = uid();

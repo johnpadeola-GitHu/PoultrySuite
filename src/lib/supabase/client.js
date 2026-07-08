@@ -86,9 +86,12 @@ const auth = {
     const res = await apiFetch('/auth/reset-password', { method: 'POST', body: { email }, noAuth: true });
     return { error: res.error ? { message: res.error } : null };
   },
-  async updateUser({ password }) {
-    // This would need a reset token flow — simplified for now
-    return { error: null };
+  // token comes from the reset-link URL (?reset_token=...), read by
+  // ResetPasswordScreen and passed straight through here.
+  async updateUser({ password, token }) {
+    if (!token) return { error: { message: 'Missing reset token' } };
+    const res = await apiFetch('/auth/update-password', { method: 'POST', body: { token, password }, noAuth: true });
+    return { error: res.error ? { message: res.error } : null };
   },
   async getSession() {
     const token = getToken();

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from './AuthProvider.jsx';
 import { isSupabaseConfigured } from '../lib/supabase/client.js';
 import AuthScreen from './pages/AuthScreen.jsx';
+import ResetPasswordScreen from './pages/ResetPasswordScreen.jsx';
 import IdleLock from './IdleLock.jsx';
 
 const wrap = {
@@ -27,6 +28,29 @@ function NotConfigured() {
 
 export default function AuthGate({ children }) {
   const { status } = useAuth();
+
+  // A reset-password link (?reset_token=...) takes priority over
+  // everything else, including an existing session — someone clicking a
+  // reset link from their email should always land on the set-new-password
+  // screen, whether or not they happen to still be signed in elsewhere.
+  const [resetToken, setResetToken] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('reset_token'); } catch (_) { return null; }
+  });
+  if (resetToken) {
+    return (
+      <ResetPasswordScreen
+        token={resetToken}
+        onDone={() => {
+          setResetToken(null);
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('reset_token');
+            window.history.replaceState({}, '', url.toString());
+          } catch (_) {}
+        }}
+      />
+    );
+  }
 
   if (!isSupabaseConfigured) return <NotConfigured />;
   if (status === 'loading') {
