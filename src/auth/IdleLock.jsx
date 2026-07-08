@@ -18,7 +18,7 @@ const padBtn = {
 };
 
 export default function IdleLock({ children }) {
-  const { user, activeFarm, signIn, signOut } = useAuth();
+  const { user, activeFarm, signIn, signOut, isPlatformAdmin, exitTenantView } = useAuth();
   const farmId = activeFarm?.id || null;
 
   const [locked, setLocked] = useState(false);
@@ -155,6 +155,13 @@ export default function IdleLock({ children }) {
               style={{ width:'100%', marginTop:14, padding:'8px', background:'transparent', color:C.ink4, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
               Forgot PIN? Owner login
             </button>
+            {isPlatformAdmin && (
+              <button
+                onClick={exitTenantView}
+                style={{ width:'100%', marginTop:10, padding:'10px', background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                Switch to Platform View
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -188,6 +195,13 @@ export default function IdleLock({ children }) {
               style={{ width:'100%', marginTop:4, padding:'8px', background:'transparent', color:C.ink4, border:'none', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
               Sign in as a different user
             </button>
+            {isPlatformAdmin && (
+              <button
+                onClick={exitTenantView}
+                style={{ width:'100%', marginTop:10, padding:'10px', background:'transparent', color:C.accent, border:`1px solid ${C.accent}`, fontSize:12, fontWeight:700, cursor:'pointer', fontFamily:'inherit' }}>
+                Switch to Platform View
+              </button>
+            )}
           </>
         )}
       </div>
