@@ -38,7 +38,11 @@ export async function createPaymentIntent(planTier) {
   const { data, error } = await supabase.rpc('create_payment_intent', { p_plan_tier: planTier });
   if (error) return { error: error.message };
   const row = Array.isArray(data) ? data[0] : data;
-  return { reference: row?.reference, amount: row?.amount_minor, email: row?.email, error: null };
+  // The Worker's createPaymentIntent() returns the field as `amount` (not
+  // `amount_minor`) — this was reading the wrong field name and always
+  // getting undefined, which is why Paystack rejected every transaction
+  // with "Transaction amount not set".
+  return { reference: row?.reference, amount: row?.amount, email: row?.email, error: null };
 }
 
 // Dynamically load the Paystack inline script once.
