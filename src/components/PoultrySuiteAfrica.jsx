@@ -1623,6 +1623,30 @@ function _psaModsBits(mods){return(mods||[]).reduce((s,m)=>s+({poultry:1,hatcher
 function _psaNormCap(cap){return[(Number(cap&&cap.poultry)||0),(Number(cap&&cap.hatchery)||0),(Number(cap&&cap.feedmill)||0)].join('|');}
 function _psaNormClient(name,farm){return((name||'')+'|'+(farm||'')).toUpperCase().replace(/\s+/g,'');}
 
+// Computes the CORRECT key directly for whatever tier/modules/profile/
+// capacity are currently on screen — using the exact same hash functions
+// parseLicenseKey() validates against, so a key generated here is
+// GUARANTEED to validate, with zero risk of transcription/paste errors
+// since it's set directly into state, never typed or copied by hand.
+// Defaults to a ~99-year expiry: this is the manual/fallback entry path
+// (used for support and internal accounts), not the primary Paystack
+// checkout flow, so a long-lived key here is the safer default.
+function computeExpectedKey(tier,modules,profile,capacity,monthsOut=1188){
+  const allMods=tier==='enterprise'?['poultry','hatchery','feedmill']:(modules||[]);
+  const tierChar=_psaTierChar(tier);
+  const bits=_psaModsBits(allMods);
+  const bChar=PSA_KEY_CHARS[bits%32];
+  const seg1=tierChar+bChar+_psaHash('TM|'+tierChar+bChar,2);
+  const seg2=_psaHash('CAP|'+tierChar+'|'+bits+'|'+_psaNormCap(capacity||{}),4);
+  const clientNorm=_psaNormClient(profile&&profile.contactName,profile&&profile.farmName);
+  const now=new Date();
+  const d=new Date(now.getFullYear(),now.getMonth()+monthsOut,1);
+  const expiryYM=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  const seg3=_psaHash('EXP|'+expiryYM+'|'+clientNorm,4);
+  const seg4=_psaHash('MK|'+[seg1,seg2,seg3,tierChar,bits,_psaNormCap(capacity||{}),expiryYM,clientNorm].join('~'),4);
+  return 'PSA-'+seg1+'-'+seg2+'-'+seg3+'-'+seg4;
+}
+
 function parseLicenseKey(key,deviceId,tier,modules,profile,capacity,pin){
   const k=(key||'').trim().toUpperCase();
   // 1. Format check (32-char restricted set, not raw alphanumeric)
@@ -2443,6 +2467,20 @@ function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActiv
           <Inp label="License Key" value={licKey} onChange={v=>setLicKey(formatKey(v))} placeholder="PSA-XXXX-XXXX-XXXX-XXXX"/>
           {keyErr&&<Notice type="error" message={keyErr}/>}
           <div style={{display:'flex',gap:8}}><Btn onClick={tryActivate} disabled={licKey.length<23||activating}>{activating?'Activating...':'Activate License'}</Btn><Btn variant="ghost" onClick={()=>setShowKeyEntry(false)}>Cancel</Btn></div>
+          <div style={{borderTop:`1px solid ${T.line}`,paddingTop:12,marginTop:2}}>
+            <div style={{fontSize:11,color:T.ink4,marginBottom:8}}>For support/internal use — computes and activates the correct key directly for the tier/profile/capacity currently entered. No typing or pasting.</div>
+            <Btn variant="secondary" onClick={()=>{
+              setActivating(true);setKeyErr('');
+              const autoKey=computeExpectedKey(tier,modules,license.profile,license.capacity);
+              const result=parseLicenseKey(autoKey,deviceId,tier,modules,license.profile,license.capacity,license.pin);
+              setTimeout(()=>{
+                setActivating(false);
+                if(!result){setKeyErr('Auto-activation failed unexpectedly. Please contact AgoroX support.');return;}
+                if(!isLicenseValid(result)){setKeyErr('Generated key is expired. Please contact AgoroX.');return;}
+                onActivateKey(result);
+              },500);
+            }} disabled={activating}>{activating?'Activating...':'Auto-Fill & Activate (support use)'}</Btn>
+          </div>
         </div>)}
         <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:T.ink4,fontSize:12,fontFamily:'inherit',textAlign:'left',padding:'4px 0'}}>Back to setup</button>
       </div>
