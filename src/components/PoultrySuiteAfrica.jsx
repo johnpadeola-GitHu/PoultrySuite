@@ -2387,7 +2387,7 @@ function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActiv
   const td=TIER_DEF[tier],price=license?.costBreakdown?.total||0;
   const daysLeft=demoDaysLeft(demoRec),demoUsed=demoRec&&!isDemoActive(demoRec);
   const [showKeyEntry,setShowKeyEntry]=useState(false),[licKey,setLicKey]=useState(''),[keyErr,setKeyErr]=useState(''),[activating,setActivating]=useState(false);
-  const formatKey=v=>{const clean=v.toUpperCase().replace(/[^A-Z0-9]/g,'');const parts=['PSA',clean.slice(0,4),clean.slice(4,8),clean.slice(8,12),clean.slice(12,16)];return parts.filter(Boolean).join('-');};
+  const formatKey=v=>{let clean=v.toUpperCase().replace(/[^A-Z0-9]/g,'');if(clean.startsWith('PSA'))clean=clean.slice(3);const parts=['PSA',clean.slice(0,4),clean.slice(4,8),clean.slice(8,12),clean.slice(12,16)];return parts.filter(Boolean).join('-');};
   const tryActivate=()=>{setActivating(true);setKeyErr('');const result=parseLicenseKey(licKey,deviceId,tier,modules,license.profile,license.capacity,license.pin);setTimeout(()=>{setActivating(false);if(!result){setKeyErr('Invalid license key. The key may be malformed, or it does not match the tier, modules, capacity, or client name entered. Verify each field matches what was provided at purchase.');return;}if(!isLicenseValid(result)){setKeyErr('This license key has expired. Please contact AgoroX for renewal.');return;}onActivateKey(result);},800);};
   const openPaystack=()=>{
     if(!PAYSTACK_CONFIG.publicKey||PAYSTACK_CONFIG.publicKey.includes('YOUR_')){
