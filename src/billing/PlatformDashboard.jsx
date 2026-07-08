@@ -186,7 +186,7 @@ const TABS = [
 ];
 
 export default function PlatformDashboard() {
-  const { viewAsTenant } = useAuth();
+  const { viewAsTenant, viewOwnFarm } = useAuth();
   const [tab, setTab] = useState('overview');
   const [stats, setStats] = useState(null);
   const [tenants, setTenants] = useState([]);
@@ -212,9 +212,14 @@ export default function PlatformDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.ink, fontFamily: 'inherit' }}>
-      <div style={{ borderBottom: `1px solid ${C.line}`, padding: '18px 24px' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>AgoroX Technologies</div>
-        <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: -0.3 }}>Platform Dashboard</div>
+      <div style={{ borderBottom: `1px solid ${C.line}`, padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>AgoroX Technologies</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: -0.3 }}>Platform Dashboard</div>
+        </div>
+        <button onClick={viewOwnFarm} style={{ height: 34, padding: '0 14px', background: 'transparent', color: C.accent, border: `1.5px solid ${C.accent}`, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
+          Farm View
+        </button>
       </div>
       <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.line}`, padding: '0 24px', overflowX: 'auto' }}>
         {TABS.map((t) => (

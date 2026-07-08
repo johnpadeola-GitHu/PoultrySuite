@@ -120,10 +120,20 @@ export function AuthProvider({ children }) {
     try { if (typeof window !== 'undefined') window.__psaActiveFarmId = state.activeFarm?.id || null; } catch (_) {}
   }, [set, state.activeFarm]);
 
+  // Distinct from viewAsTenant() — that shows a READ-ONLY summary for a
+  // customer's farm the admin doesn't belong to. This instead switches to
+  // the admin's OWN full, live farm app (same DeviceGate/PIN flow any
+  // regular user gets), since a platform admin often has their own farm
+  // too and needs genuine access to it, not just a summary.
+  const viewOwnFarm = useCallback(() => {
+    set((s) => ({ ...s, viewMode: 'tenant', viewingFarm: null }));
+    try { if (typeof window !== 'undefined') window.__psaActiveFarmId = state.activeFarm?.id || null; } catch (_) {}
+  }, [set, state.activeFarm]);
+
   const value = {
     ...state, isSupabaseConfigured,
     signIn, signUp, signOut, requestPasswordReset, refreshContext,
-    viewAsTenant, exitTenantView,
+    viewAsTenant, exitTenantView, viewOwnFarm,
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

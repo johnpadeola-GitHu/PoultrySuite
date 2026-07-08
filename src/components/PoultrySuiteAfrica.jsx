@@ -8077,6 +8077,7 @@ function FeedMillModule({navSignal,capacity,license,activeUser,onUpdateLicense,d
 
 
 function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwitchToLive,onRestoreTraining,switchKey,onUpdateLicense,demoRec}){
+  const {isPlatformAdmin,exitTenantView}=useAuth();
   const role=activeUser?.role||'Owner / Director';
   // Subscribe to currency changes so every ngn()/fmtN() call across the tree
   // re-renders when the user switches currency.
@@ -8141,6 +8142,11 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
             {!demoActive&&daysLeft<30&&<div style={{fontSize:11,fontWeight:600,color:T.warn,background:T.warnBg,border:`1px solid ${T.warnLine}`,padding:'3px 9px'}}>{daysLeft}d left</div>}
             <CurrencySwitcher/>
             <LanguageSwitcher/>
+            {isPlatformAdmin&&(
+              <button onClick={exitTenantView} style={{height:32,padding:'0 10px',background:'#0f5540',color:'#fff',border:'none',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:700}}>
+                Platform View
+              </button>
+            )}
             <NotificationBell notifs={allNotifs} onOpen={()=>setNotifOpen(true)}/>
             <button onClick={()=>{addAudit('User signed out',activeUser?.name||'User');onLogout();}}
               style={{background:'none',border:`1px solid ${T.line}`,fontSize:12,color:T.ink3,cursor:'pointer',padding:'7px 13px',fontFamily:'inherit',fontWeight:500,minHeight:36,lineHeight:1,transition:'background 0.12s'}}
