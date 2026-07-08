@@ -212,6 +212,22 @@ export default {
         return json({ data: rows.results }, corsHeaders);
       }
 
+      // Farm-level license snapshot — lets a fresh device/session restore
+      // an already-activated license instead of repeating onboarding.
+      if (path.match(/^\/api\/farms\/[^/]+\/license-snapshot$/) && method === 'GET') {
+        const farmId = path.split('/')[3];
+        if (!await verifyFarmAccess(env, user.id, farmId)) return json({ error: 'Forbidden' }, corsHeaders, 403);
+        const row = await env.DB.prepare('SELECT license_snapshot FROM farms WHERE id = ?').bind(farmId).first();
+        return json({ data: row?.license_snapshot ? JSON.parse(row.license_snapshot) : null }, corsHeaders);
+      }
+      if (path.match(/^\/api\/farms\/[^/]+\/license-snapshot$/) && method === 'PUT') {
+        const farmId = path.split('/')[3];
+        if (!await verifyFarmAccess(env, user.id, farmId)) return json({ error: 'Forbidden' }, corsHeaders, 403);
+        const body = await request.json();
+        await env.DB.prepare('UPDATE farms SET license_snapshot = ? WHERE id = ?').bind(JSON.stringify(body), farmId).run();
+        return json({ ok: true }, corsHeaders);
+      }
+
       // Platform admin
       if (path === '/api/platform/is-admin' && method === 'GET')
         return json({ isAdmin: await isPlatformAdmin(env, user.id) }, corsHeaders);

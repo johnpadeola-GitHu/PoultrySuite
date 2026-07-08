@@ -263,6 +263,21 @@ async function rpc(name, params) {
   }
 }
 
+// Farm-level license snapshot — lets a fresh device/session restore an
+// already-activated license without repeating onboarding. Kept as direct
+// functions rather than forced into the generic rpcMap pattern, since the
+// farm ID needs to be embedded in the URL path, not sent as a body/query
+// param the way other RPCs work.
+export async function getLicenseSnapshot(farmId) {
+  const res = await apiFetch(`/api/farms/${farmId}/license-snapshot`, { method: 'GET' });
+  if (res.error) return { data: null, error: res.error };
+  return { data: res.data, error: null };
+}
+export async function saveLicenseSnapshot(farmId, snapshot) {
+  const res = await apiFetch(`/api/farms/${farmId}/license-snapshot`, { method: 'PUT', body: snapshot });
+  return { error: res.error || null };
+}
+
 // ── Exported shim ────────────────────────────────────────────────────
 
 export const supabase = {

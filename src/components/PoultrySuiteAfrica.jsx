@@ -7,6 +7,7 @@ import DevicePinManager from './DevicePinManager.jsx';
 import { lockNow } from '../auth/devicePins.js';
 import UpgradeScreen from '../billing/UpgradeScreen.jsx';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import { getLicenseSnapshot, saveLicenseSnapshot } from '../lib/supabase/client.js';
 const _S={fill:"none",strokeWidth:"1.75",strokeLinecap:"square",strokeLinejoin:"miter"};
 
 // ══════════════════════════════════════════════════════════
@@ -8328,6 +8329,7 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
 // ── ROOT APP
 function PoultrySuiteAfricaCore(){
   useEffect(()=>{const el=document.createElement('style');el.textContent=GCSS;document.head.appendChild(el);const ps=document.createElement('script');ps.src='https://js.paystack.co/v1/inline.js';ps.async=true;document.head.appendChild(ps);return()=>{try{document.head.removeChild(el);document.head.removeChild(ps);}catch(_){}};},[]);
+  const {activeFarm}=useAuth();
   const [screen,setScreen]=useState('splash');
   const [tier,setTier]=useState(null);
   const [modules,setModules]=useState([]);
@@ -8354,6 +8356,21 @@ function PoultrySuiteAfricaCore(){
         if(storedLic&&isLicenseValid(storedLic)){setLicense(storedLic);setTier(storedLic.tier);setModules(storedLic.enabledModules||[]);}
         else if(demo&&!isDemoActive(demo)&&setup){if(setup.license)setLicense(migrateLicense(setup.license));if(setup.tier)setTier(setup.tier);if(setup.modules)setModules(setup.modules);}
         else if(demo&&isDemoActive(demo)&&setup?.license){setLicense(migrateLicense(setup.license));setTier(setup.tier||demo.tier);setModules(setup.modules||[]); }
+        else if(activeFarm?.id){
+          // No usable license found on THIS device — check whether the
+          // account's farm already has an activated license saved
+          // server-side (from a previous device or after a cache clear),
+          // and restore it here instead of forcing plan selection again.
+          try{
+            const{data:snap}=await getLicenseSnapshot(activeFarm.id);
+            if(snap&&snap.paid&&isLicenseValid(snap)){
+              const lic=migrateLicense(snap);
+              await storeLicense(lic);
+              await storeSetup({tier:lic.tier,modules:lic.enabledModules,license:lic,pin:lic.pin});
+              if(mounted){setLicense(lic);setTier(lic.tier);setModules(lic.enabledModules||[]);}
+            }
+          }catch(e){console.warn('license snapshot fetch failed:',e);}
+        }
       }catch(e){console.warn("PoultrySuite boot error:",e);}finally{if(mounted)setLoading(false);}
     })();
   },[]);
@@ -8401,7 +8418,7 @@ function PoultrySuiteAfricaCore(){
   };
   const handleProfileComplete=async(form)=>{try{const lic=buildLicense(tier,modules,form.capacity,form,form.pin);setLicense(lic);const setup={tier,modules,license:lic,pin:form.pin};await storeSetup(setup);addAudit('Profile registered','System');}catch(e){console.warn('profile err',e);}setScreen('paymentGate');};
   const handleStartDemo=async()=>{try{const rec=await startDemo(tier);setDemoRec(rec);addAudit('Demo started','System');}catch(e){console.warn('demo err',e);}setScreen('licenseView');};
-  const handleActivateKey=async(paidLic)=>{const lic=migrateLicense(paidLic);await storeLicense(lic);const setup=await getStoredSetup();await storeSetup({...setup,license:lic});setLicense(lic);addAudit('Paid license activated','System');setScreen('licenseView');};
+  const handleActivateKey=async(paidLic)=>{const lic=migrateLicense(paidLic);await storeLicense(lic);const setup=await getStoredSetup();await storeSetup({...setup,license:lic});setLicense(lic);addAudit('Paid license activated','System');setScreen('licenseView');if(activeFarm?.id&&lic.paid){saveLicenseSnapshot(activeFarm.id,lic).catch(e=>console.warn('snapshot save failed:',e));}};
   const handleActivate=()=>{addAudit('System activated','System');setScreen('dashboard');};
   const handleLoginSuccess=(user)=>{setActiveUser(user);addAudit('Authenticated via role PIN',user?.name||'User');setScreen('dashboard');};
   const handleLogout=()=>{addAudit('User signed out',activeUser?.name||'User');setActiveUser(null);setScreen('login');};
@@ -8415,8 +8432,9 @@ function PoultrySuiteAfricaCore(){
       // Refresh active user reference if they were edited
       if(activeUser){const updated=(lic.users||[]).find(u=>u.id===activeUser.id);if(updated)setActiveUser(updated);else setActiveUser(null);}
       addAudit('License updated',activeUser?.name||'User');
+      if(activeFarm?.id&&lic.paid){saveLicenseSnapshot(activeFarm.id,lic).catch(e=>console.warn('snapshot save failed:',e));}
     }catch(e){console.warn('license update err',e);}
-  },[activeUser,addAudit]);
+  },[activeUser,addAudit,activeFarm]);
   const handleSwitchToLive=async()=>{
     await setDataMode('live');
     setDataModeState('live');
