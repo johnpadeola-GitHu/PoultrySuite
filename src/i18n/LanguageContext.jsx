@@ -48,7 +48,7 @@ export function LanguageProvider({ children }) {
     writePersisted(code);
   }, []);
 
-  const t = useCallback((path) => translate(lang, path), [lang]);
+  const t = useCallback((path, vars) => translate(lang, path, vars), [lang]);
 
   // Publish to window.__psa so any static/legacy helper outside the React
   // tree (mirrors how currency does this for ngn()/fmtN()) can also read
@@ -69,7 +69,7 @@ export function useLanguage() {
   if (!ctx) {
     // Defensive fallback so a component rendered outside the provider
     // (e.g. during a refactor) degrades to English instead of crashing.
-    return { lang: DEFAULT_LANGUAGE, setLang: () => {}, t: (p) => translate(DEFAULT_LANGUAGE, p), languages: LANGUAGES };
+    return { lang: DEFAULT_LANGUAGE, setLang: () => {}, t: (p, vars) => translate(DEFAULT_LANGUAGE, p, vars), languages: LANGUAGES };
   }
   return ctx;
 }

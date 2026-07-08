@@ -2412,14 +2412,15 @@ function ProfileRegScreen({tier,modules,onComplete}){
 
 function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActivateKey,onBack}){
   const {isPlatformAdmin}=useAuth();
+  const {t}=useLanguage();
   const td=TIER_DEF[tier],price=license?.costBreakdown?.total||0;
   const daysLeft=demoDaysLeft(demoRec),demoUsed=demoRec&&!isDemoActive(demoRec);
   const [showKeyEntry,setShowKeyEntry]=useState(false),[licKey,setLicKey]=useState(''),[keyErr,setKeyErr]=useState(''),[activating,setActivating]=useState(false);
   const formatKey=v=>{let clean=v.toUpperCase().replace(/[^A-Z0-9]/g,'');if(clean.startsWith('PSA'))clean=clean.slice(3);const parts=['PSA',clean.slice(0,4),clean.slice(4,8),clean.slice(8,12),clean.slice(12,16)];return parts.filter(Boolean).join('-');};
-  const tryActivate=()=>{setActivating(true);setKeyErr('');const result=parseLicenseKey(licKey,deviceId,tier,modules,license.profile,license.capacity,license.pin);setTimeout(()=>{setActivating(false);if(!result){setKeyErr('Invalid license key. The key may be malformed, or it does not match the tier, modules, capacity, or client name entered. Verify each field matches what was provided at purchase.');return;}if(!isLicenseValid(result)){setKeyErr('This license key has expired. Please contact AgoroX for renewal.');return;}onActivateKey(result);},800);};
+  const tryActivate=()=>{setActivating(true);setKeyErr('');const result=parseLicenseKey(licKey,deviceId,tier,modules,license.profile,license.capacity,license.pin);setTimeout(()=>{setActivating(false);if(!result){setKeyErr(t('license.invalidKey'));return;}if(!isLicenseValid(result)){setKeyErr(t('license.keyExpired'));return;}onActivateKey(result);},800);};
   const openPaystack=()=>{
     if(!PAYSTACK_CONFIG.publicKey||PAYSTACK_CONFIG.publicKey.includes('YOUR_')){
-      setKeyErr('Payment not configured. Enter your license key manually.');
+      setKeyErr(t('license.paymentNotConfigured'));
       setShowKeyEntry(true);
       return;
     }
@@ -2436,39 +2437,39 @@ function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActiv
           const result=buildLicense(tier,modules,license.capacity,license.profile,license.pin,{paid:true,deviceId,expiry:new Date(Date.now()+365*86400000).toISOString().split('T')[0]});
           onActivateKey(result);
         }catch(e){
-          setKeyErr('Payment succeeded (Ref: '+response.reference+') but activation failed automatically. Please contact AgoroX support with this reference.');
+          setKeyErr(t('license.paymentSucceededButFailed',{ref:response.reference}));
           setShowKeyEntry(true);
         }
         setActivating(false);
       },
       onClose:()=>{},
     });
-    if(handler){handler.openIframe();}else{setKeyErr('Paystack not loaded. Enter license key manually.');setShowKeyEntry(true);}
+    if(handler){handler.openIframe();}else{setKeyErr(t('license.paystackNotLoaded'));setShowKeyEntry(true);}
   };
   return(
-    <PageShell withFooter><NavHeader title="License & Activation"/>
+    <PageShell withFooter><NavHeader title={t('license.title')}/>
       <div style={{display:'flex',flexDirection:'column',gap:16}}>
         <div style={{background:T.bg2,border:`1px solid ${T.line}`,padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <div><div style={{fontSize:10,fontWeight:600,color:T.ink4,textTransform:'uppercase',letterSpacing:.8}}>Device ID</div><div className="mono" style={{fontSize:12,color:T.ink,marginTop:2}}>{deviceId||'—'}</div></div>
+          <div><div style={{fontSize:10,fontWeight:600,color:T.ink4,textTransform:'uppercase',letterSpacing:.8}}>{t('license.deviceId')}</div><div className="mono" style={{fontSize:12,color:T.ink,marginTop:2}}>{deviceId||'—'}</div></div>
         </div>
         <div style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'18px 20px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
-            <div><div style={{fontSize:17,fontWeight:700,color:T.ink}}>{td.label} License</div><div style={{fontSize:12,color:T.ink3,marginTop:3}}>Annual subscription · 365 days</div></div>
-            <div style={{textAlign:'right'}}><div className="mono" style={{fontSize:20,fontWeight:700,color:T.ink}}>{ngn(price)}</div><div style={{fontSize:11,color:T.ink4}}>per year</div></div>
+            <div><div style={{fontSize:17,fontWeight:700,color:T.ink}}>{td.label} License</div><div style={{fontSize:12,color:T.ink3,marginTop:3}}>{t('license.annualSubscription')}</div></div>
+            <div style={{textAlign:'right'}}><div className="mono" style={{fontSize:20,fontWeight:700,color:T.ink}}>{ngn(price)}</div><div style={{fontSize:11,color:T.ink4}}>{t('license.perYear')}</div></div>
           </div>
         </div>
-        {!demoUsed&&(<div style={{background:T.accentBg,border:`1px solid ${T.accentLine}`,padding:'14px 18px'}}><div style={{fontSize:13,fontWeight:600,color:T.accentDark,marginBottom:4}}>{demoRec?`Demo Active — ${daysLeft} days remaining`:'7-Day Free Demo Available'}</div><div style={{fontSize:12,color:T.ink3}}>Try the full system free for 7 days. No credit card required.</div></div>)}
-        {demoUsed&&<Notice type="warn" message="Your 7-day demo has expired. Activate a paid license to continue."/>}
+        {!demoUsed&&(<div style={{background:T.accentBg,border:`1px solid ${T.accentLine}`,padding:'14px 18px'}}><div style={{fontSize:13,fontWeight:600,color:T.accentDark,marginBottom:4}}>{demoRec?t('license.demoActive',{days:daysLeft}):t('license.demoAvailable')}</div><div style={{fontSize:12,color:T.ink3}}>{t('license.demoTagline')}</div></div>)}
+        {demoUsed&&<Notice type="warn" message={t('license.demoExpired')}/>}
         <div style={{display:'flex',flexDirection:'column',gap:10}}>
-          <button onClick={openPaystack} style={{width:'100%',padding:'14px 20px',background:T.accent,color:'#fff',border:'none',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Pay {ngn(price)} / year via Paystack</button>
-          {!demoRec&&!demoUsed&&<Btn full onClick={onDemo} variant="secondary">Start 7-Day Free Demo</Btn>}
-          {demoRec&&isDemoActive(demoRec)&&<Btn full onClick={onDemo} variant="secondary">Continue Demo ({daysLeft} days left)</Btn>}
-          <button onClick={()=>setShowKeyEntry(v=>!v)} style={{width:'100%',padding:'10px',background:'transparent',color:T.ink3,border:`1px solid ${T.line}`,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>{showKeyEntry?'Hide License Key Entry':'I have a license key'}</button>
+          <button onClick={openPaystack} style={{width:'100%',padding:'14px 20px',background:T.accent,color:'#fff',border:'none',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>{t('license.payViaPaystack',{price:ngn(price)})}</button>
+          {!demoRec&&!demoUsed&&<Btn full onClick={onDemo} variant="secondary">{t('license.startDemo')}</Btn>}
+          {demoRec&&isDemoActive(demoRec)&&<Btn full onClick={onDemo} variant="secondary">{t('license.continueDemo',{days:daysLeft})}</Btn>}
+          <button onClick={()=>setShowKeyEntry(v=>!v)} style={{width:'100%',padding:'10px',background:'transparent',color:T.ink3,border:`1px solid ${T.line}`,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>{showKeyEntry?t('license.hideKeyEntry'):t('license.haveKey')}</button>
         </div>
         {showKeyEntry&&(<div style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'18px 20px',display:'flex',flexDirection:'column',gap:12}}>
-          <Inp label="License Key" value={licKey} onChange={v=>setLicKey(formatKey(v))} placeholder="PSA-XXXX-XXXX-XXXX-XXXX"/>
+          <Inp label={t('license.licenseKey')} value={licKey} onChange={v=>setLicKey(formatKey(v))} placeholder="PSA-XXXX-XXXX-XXXX-XXXX"/>
           {keyErr&&<Notice type="error" message={keyErr}/>}
-          <div style={{display:'flex',gap:8}}><Btn onClick={tryActivate} disabled={licKey.length<23||activating}>{activating?'Activating...':'Activate License'}</Btn><Btn variant="ghost" onClick={()=>setShowKeyEntry(false)}>Cancel</Btn></div>
+          <div style={{display:'flex',gap:8}}><Btn onClick={tryActivate} disabled={licKey.length<23||activating}>{activating?t('license.activating'):t('license.activateLicense')}</Btn><Btn variant="ghost" onClick={()=>setShowKeyEntry(false)}>{t('license.cancel')}</Btn></div>
           {isPlatformAdmin&&(<div style={{borderTop:`1px solid ${T.line}`,paddingTop:12,marginTop:2}}>
             <div style={{fontSize:11,color:T.ink4,marginBottom:8}}>Platform admin only — computes and activates the correct key directly for the tier/profile/capacity currently entered. No typing or pasting.</div>
             <Btn variant="secondary" onClick={()=>{
@@ -2477,25 +2478,27 @@ function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActiv
               const result=parseLicenseKey(autoKey,deviceId,tier,modules,license.profile,license.capacity,license.pin);
               setTimeout(()=>{
                 setActivating(false);
-                if(!result){setKeyErr('Auto-activation failed unexpectedly. Please contact AgoroX support.');return;}
-                if(!isLicenseValid(result)){setKeyErr('Generated key is expired. Please contact AgoroX.');return;}
+                if(!result){setKeyErr(t('license.invalidKey'));return;}
+                if(!isLicenseValid(result)){setKeyErr(t('license.keyExpired'));return;}
                 onActivateKey(result);
               },500);
             }} disabled={activating}>{activating?'Activating...':'Auto-Fill & Activate (support use)'}</Btn>
           </div>)}
         </div>)}
-        <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:T.ink4,fontSize:12,fontFamily:'inherit',textAlign:'left',padding:'4px 0'}}>Back to setup</button>
+        <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:T.ink4,fontSize:12,fontFamily:'inherit',textAlign:'left',padding:'4px 0'}}>{t('license.backToSetup')}</button>
       </div>
     </PageShell>
   );
 }
 
 function DemoBanner({demoRec,onUpgrade}){
+  const {t}=useLanguage();
   const days=demoDaysLeft(demoRec),urgent=days<=2;
   if(!isDemoActive(demoRec))return null;
+  const plural=days!==1?'s':'';
   return(<div style={{background:urgent?T.errBg:T.accentBg,borderBottom:`1px solid ${urgent?T.errLine:T.accentLine}`,padding:'8px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
-    <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:6,height:6,background:urgent?T.err:T.accent}}/><span style={{fontSize:12,fontWeight:600,color:urgent?T.err:T.accentDark}}>{urgent?`Demo expires in ${days} day${days!==1?'s':''}`:`Demo — ${days} day${days!==1?'s':''} remaining`}</span></div>
-    <button onClick={onUpgrade} style={{fontSize:11,fontWeight:700,padding:'5px 14px',background:T.accent,color:'#fff',border:'none',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>Upgrade to Full License</button>
+    <div style={{display:'flex',alignItems:'center',gap:10}}><div style={{width:6,height:6,background:urgent?T.err:T.accent}}/><span style={{fontSize:12,fontWeight:600,color:urgent?T.err:T.accentDark}}>{urgent?t('license.demoExpiresIn',{days,plural}):t('license.demoRemaining',{days,plural})}</span></div>
+    <button onClick={onUpgrade} style={{fontSize:11,fontWeight:700,padding:'5px 14px',background:T.accent,color:'#fff',border:'none',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>{t('license.upgradeFullLicense')}</button>
   </div>);
 }
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthProvider.jsx';
+import { useLanguage } from '../i18n/index.js';
 import { loadPlans, createPaymentIntent, openPaystack, pollSubscription, isBillingConfigured } from './billingService.js';
 
 const C = {
@@ -12,14 +13,14 @@ function naira(minor) {
   return '₦' + (minor / 100).toLocaleString('en-NG', { maximumFractionDigits: 0 });
 }
 
-const FEATURES = {
-  starter:['Up to 2 devices','Core PoultryOS','Houses, batches & mortality','Feed & vaccination tracking','Offline-capable, cloud-synced'],
-  professional:['Up to 5 devices','Everything in Starter','HatcheryOS module','Advanced analytics','Priority email support'],
-  enterprise:['Up to 15 devices','Everything in Professional','FeedMillOS module','Multi-branch ready','Dedicated support'],
-};
-
 export default function UpgradeScreen({ onClose, license, onUpdateLicense }) {
   const { activeFarm, role, refreshContext } = useAuth();
+  const { t } = useLanguage();
+  const FEATURES = {
+    starter: t('license.starterFeatures'),
+    professional: t('license.professionalFeatures'),
+    enterprise: t('license.enterpriseFeatures'),
+  };
   const [plans, setPlans] = useState([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState(null);
@@ -38,18 +39,18 @@ export default function UpgradeScreen({ onClose, license, onUpdateLicense }) {
 
   const buy = async (tier) => {
     setMsg(null);
-    if (!isBillingConfigured) { setMsg({ kind:'err', text:'Billing is not configured yet. Please try again later.' }); return; }
-    if (!isOwner) { setMsg({ kind:'err', text:'Only the farm owner can purchase a subscription.' }); return; }
+    if (!isBillingConfigured) { setMsg({ kind:'err', text:t('license.billingNotConfigured') }); return; }
+    if (!isOwner) { setMsg({ kind:'err', text:t('license.ownerOnlyPurchase') }); return; }
     setBusy(true);
     try {
       const intent = await createPaymentIntent(tier);
       if (intent.error) { setMsg({ kind:'err', text:intent.error }); setBusy(false); return; }
       const result = await openPaystack({ email: intent.email, amountMinor: intent.amount, reference: intent.reference });
       if (result.status === 'success') {
-        setMsg({ kind:'ok', text:'Payment received — activating your plan…' });
+        setMsg({ kind:'ok', text:t('license.activatingPlan') });
         const sub = await pollSubscription(activeFarm?.id);
         if (sub) {
-          setMsg({ kind:'ok', text:'Your plan is now active. Thank you!' });
+          setMsg({ kind:'ok', text:t('license.planActive') });
           refreshContext && refreshContext();
           // Bridge: mark the LOCAL license as paid too, since the rest of
           // the app (Dashboard, PaymentGateScreen, the demo gate) checks
@@ -66,10 +67,10 @@ export default function UpgradeScreen({ onClose, license, onUpdateLicense }) {
             });
           }
         } else {
-          setMsg({ kind:'ok', text:'Payment received. Your plan will activate shortly — you can refresh in a moment.' });
+          setMsg({ kind:'ok', text:t('license.paymentReceivedDelay') });
         }
       } else {
-        setMsg({ kind:'err', text:'Checkout cancelled. No payment was made.' });
+        setMsg({ kind:'err', text:t('license.checkoutCancelled') });
       }
     } catch (err) {
       setMsg({ kind:'err', text: String(err?.message || err) });
@@ -82,11 +83,11 @@ export default function UpgradeScreen({ onClose, license, onUpdateLicense }) {
     <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12 }}>
         <div>
-          <div style={{ fontSize:18, fontWeight:800, color:C.ink, letterSpacing:-0.3 }}>Choose your plan</div>
-          <div style={{ fontSize:13, color:C.ink3, marginTop:4, lineHeight:1.5 }}>Annual subscription, billed once a year. Upgrade anytime as your farm grows.</div>
+          <div style={{ fontSize:18, fontWeight:800, color:C.ink, letterSpacing:-0.3 }}>{t('license.choosePlan')}</div>
+          <div style={{ fontSize:13, color:C.ink3, marginTop:4, lineHeight:1.5 }}>{t('license.annualBilling')}</div>
         </div>
         {onClose && (
-          <button onClick={onClose} style={{ background:'transparent', border:`1px solid ${C.line}`, color:C.ink3, padding:'8px 14px', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>Close</button>
+          <button onClick={onClose} style={{ background:'transparent', border:`1px solid ${C.line}`, color:C.ink3, padding:'8px 14px', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>{t('license.close')}</button>
         )}
       </div>
 
@@ -95,7 +96,7 @@ export default function UpgradeScreen({ onClose, license, onUpdateLicense }) {
       )}
 
       {loadingPlans ? (
-        <div style={{ padding:'40px', textAlign:'center', color:C.ink4, fontSize:14 }}>Loading plans…</div>
+        <div style={{ padding:'40px', textAlign:'center', color:C.ink4, fontSize:14 }}>{t('license.loadingPlans')}</div>
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:14 }}>
           {plans.map((p) => {
@@ -103,13 +104,13 @@ export default function UpgradeScreen({ onClose, license, onUpdateLicense }) {
             return (
               <div key={p.id} style={{ display:'flex', flexDirection:'column', background:C.card, border:`${featured?2:1}px solid ${featured?C.accent:C.line}`, padding:'22px 20px', position:'relative' }}>
                 {featured && (
-                  <div style={{ position:'absolute', top:-11, left:20, background:C.accent, color:'#fff', fontSize:10, fontWeight:700, padding:'3px 10px', textTransform:'uppercase', letterSpacing:0.8 }}>Most popular</div>
+                  <div style={{ position:'absolute', top:-11, left:20, background:C.accent, color:'#fff', fontSize:10, fontWeight:700, padding:'3px 10px', textTransform:'uppercase', letterSpacing:0.8 }}>{t('license.mostPopular')}</div>
                 )}
                 <div style={{ fontSize:15, fontWeight:800, color:C.ink, marginBottom:4 }}>{p.name}</div>
                 <div style={{ fontSize:12, color:C.ink4, lineHeight:1.5, marginBottom:16, minHeight:34 }}>{p.description}</div>
                 <div style={{ display:'flex', alignItems:'baseline', gap:5, marginBottom:18 }}>
                   <span style={{ fontSize:26, fontWeight:800, color:C.ink, letterSpacing:-0.5 }}>{naira(p.annual_price_minor)}</span>
-                  <span style={{ fontSize:12, color:C.ink4 }}>/year</span>
+                  <span style={{ fontSize:12, color:C.ink4 }}>{t('license.perYearShort')}</span>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:20 }}>
                   {(FEATURES[p.tier] || []).map((f,i) => (
@@ -121,7 +122,7 @@ export default function UpgradeScreen({ onClose, license, onUpdateLicense }) {
                 </div>
                 <button onClick={() => buy(p.tier)} disabled={busy || !isOwner}
                   style={{ marginTop:'auto', background: featured?C.accent:'transparent', color: featured?'#fff':C.accent, border:`1.5px solid ${C.accent}`, padding:'11px 16px', fontSize:13, fontWeight:700, cursor: (busy||!isOwner)?'not-allowed':'pointer', fontFamily:'inherit', minHeight:44, opacity:(busy||!isOwner)?0.55:1 }}>
-                  {busy ? 'Please wait…' : `Choose ${p.name}`}
+                  {busy ? t('license.pleaseWait') : t('license.choosePlanBtn',{name:p.name})}
                 </button>
               </div>
             );
@@ -130,11 +131,11 @@ export default function UpgradeScreen({ onClose, license, onUpdateLicense }) {
       )}
 
       {!isOwner && (
-        <div style={{ fontSize:12, color:C.ink4, textAlign:'center' }}>Only the farm owner can purchase or change the subscription.</div>
+        <div style={{ fontSize:12, color:C.ink4, textAlign:'center' }}>{t('license.ownerOnly')}</div>
       )}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, fontSize:11, color:C.ink4, marginTop:4 }}>
         <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={C.ink4} strokeWidth="1.75" strokeLinecap="square"><rect x="3" y="11" width="18" height="11" rx="0"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        Secure payment by Paystack · cards, bank transfer & USSD
+        {t('license.securePayment')}
       </div>
     </div>
   );
