@@ -8036,8 +8036,20 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
     window.addEventListener('psa:currencychange', onChange);
     return () => window.removeEventListener('psa:currencychange', onChange);
   }, []);
+  // When the user is currently on the free demo, the dashboard, expiry banner,
+  // and License Info screen must all reflect the demo countdown (not the paid
+  // license's far-future expiry). Once a paid license is activated, demoRec
+  // either no longer exists or has been superseded.
+  const demoActive=demoRec&&isDemoActive(demoRec)&&!license.paid;
+  // During an active free demo, ALL THREE modules are unlocked regardless
+  // of the tier/modules originally selected at sign-up — this lets a
+  // trial user explore PoultryOS, HatcheryOS, and FeedMillOS before
+  // deciding which plan to buy. Once the demo ends (or a paid license is
+  // active), access reverts to exactly what that license entitles.
+  const ALL_MODULE_IDS=['poultry','hatchery','feedmill'];
+  const activeModuleList=demoActive?ALL_MODULE_IDS:license.enabledModules;
   // Filter enabled modules by view permission
-  const visibleMods=license.enabledModules.filter(m=>canSeeModule(role,m));
+  const visibleMods=activeModuleList.filter(m=>canSeeModule(role,m));
   const [activeId,setActiveId]=useState(visibleMods[0]||(can(role,'module.core','view')&&TIER_DEF[license.tier].hasCore?'core':'license'));
   const [notifOpen,setNotifOpen]=useState(false);
   const [showUpgrade,setShowUpgrade]=useState(false);
@@ -8045,11 +8057,6 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
   // re-read the pending engine even if they're already mounted.
   const [navSignal,setNavSignal]=useState(0);
   const tier=TIER_DEF[license.tier],profile=license.profile;
-  // When the user is currently on the free demo, the dashboard, expiry banner,
-  // and License Info screen must all reflect the demo countdown (not the paid
-  // license's far-future expiry). Once a paid license is activated, demoRec
-  // either no longer exists or has been superseded.
-  const demoActive=demoRec&&isDemoActive(demoRec)&&!license.paid;
   const demoLeft=demoActive?demoDaysLeft(demoRec):0;
   const paidLeft=Math.max(0,Math.ceil((new Date(license.expiry)-new Date())/86400000));
   const daysLeft=demoActive?demoLeft:paidLeft;
@@ -8112,9 +8119,9 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
         </div>
       </div>
       <main style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch',paddingLeft:'var(--ps-gutter-x)',paddingRight:'var(--ps-gutter-x)',paddingTop:'var(--ps-gutter-y)',paddingBottom:'var(--ps-gutter-y)'}} key={activeId} className="au"><div style={{maxWidth:'var(--ps-max-width)',marginLeft:'auto',marginRight:'auto',width:'100%'}}>
-        {activeId==='poultry'&&license.enabledModules.includes('poultry')&&canSeeModule(role,'poultry')&&<PoultryModule navSignal={navSignal} capacity={license.capacity.poultry||0} license={license} tier={tier} activeUser={activeUser} onUpdateLicense={onUpdateLicense} key={switchKey+'_'+dataMode} initialSeed={dataMode==='live'?PS_EMPTY:undefined} dataMode={dataMode} onSwitchToLive={onSwitchToLive} onRestoreTraining={onRestoreTraining}/>}
-        {activeId==='hatchery'&&license.enabledModules.includes('hatchery')&&canSeeModule(role,'hatchery')&&<HatcheryModule navSignal={navSignal} capacity={license.capacity.hatchery||0} license={license} activeUser={activeUser} onUpdateLicense={onUpdateLicense} key={switchKey+'_'+dataMode} initialSeed={dataMode==='live'?HS_EMPTY:undefined} dataMode={dataMode} onSwitchToLive={onSwitchToLive} onRestoreTraining={onRestoreTraining}/>}
-        {activeId==='feedmill'&&license.enabledModules.includes('feedmill')&&canSeeModule(role,'feedmill')&&<FeedMillModule navSignal={navSignal} capacity={license.capacity.feedmill||0} license={license} activeUser={activeUser} onUpdateLicense={onUpdateLicense} key={switchKey+'_'+dataMode} initialSeed={dataMode==='live'?FM_EMPTY:undefined} dataMode={dataMode} onSwitchToLive={onSwitchToLive} onRestoreTraining={onRestoreTraining}/>}
+        {activeId==='poultry'&&activeModuleList.includes('poultry')&&canSeeModule(role,'poultry')&&<PoultryModule navSignal={navSignal} capacity={license.capacity.poultry||0} license={license} tier={tier} activeUser={activeUser} onUpdateLicense={onUpdateLicense} key={switchKey+'_'+dataMode} initialSeed={dataMode==='live'?PS_EMPTY:undefined} dataMode={dataMode} onSwitchToLive={onSwitchToLive} onRestoreTraining={onRestoreTraining}/>}
+        {activeId==='hatchery'&&activeModuleList.includes('hatchery')&&canSeeModule(role,'hatchery')&&<HatcheryModule navSignal={navSignal} capacity={license.capacity.hatchery||0} license={license} activeUser={activeUser} onUpdateLicense={onUpdateLicense} key={switchKey+'_'+dataMode} initialSeed={dataMode==='live'?HS_EMPTY:undefined} dataMode={dataMode} onSwitchToLive={onSwitchToLive} onRestoreTraining={onRestoreTraining}/>}
+        {activeId==='feedmill'&&activeModuleList.includes('feedmill')&&canSeeModule(role,'feedmill')&&<FeedMillModule navSignal={navSignal} capacity={license.capacity.feedmill||0} license={license} activeUser={activeUser} onUpdateLicense={onUpdateLicense} key={switchKey+'_'+dataMode} initialSeed={dataMode==='live'?FM_EMPTY:undefined} dataMode={dataMode} onSwitchToLive={onSwitchToLive} onRestoreTraining={onRestoreTraining}/>}
         {activeId==='core'&&tier.hasCore&&can(role,'module.core','view')&&(
           <div style={{maxWidth:700,margin:'0 auto',display:'flex',flexDirection:'column',gap:16}}>
             {/* Core Engine Header */}
@@ -8125,7 +8132,7 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
                 </div>
                 <div>
                   <div style={{fontSize:16,fontWeight:700,color:T.ink,letterSpacing:-0.2,marginBottom:3}}>Core Engine</div>
-                  <div style={{fontSize:12,color:T.ink3,lineHeight:1.6}}>Cross-module intelligence hub. Aggregated summaries from your enabled modules — {license.enabledModules.map(m=>MODULE_DEF[m]?.name).filter(Boolean).join(', ')}.</div>
+                  <div style={{fontSize:12,color:T.ink3,lineHeight:1.6}}>Cross-module intelligence hub. Aggregated summaries from your enabled modules — {activeModuleList.map(m=>MODULE_DEF[m]?.name).filter(Boolean).join(', ')}.</div>
                 </div>
               </div>
             </div>
@@ -8142,7 +8149,7 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
             {(()=>{
               const ps = (typeof window!=='undefined'&&window.__psState)||{};
               const sections=[];
-              if(license.enabledModules.includes('poultry')&&ps.poultry){
+              if(activeModuleList.includes('poultry')&&ps.poultry){
                 const p=ps.poultry;
                 const active=p.batches.filter(b=>b.status==='Active');
                 const totalBirds=active.reduce((s,b)=>s+(Number(b.currentCount)||0),0);
@@ -8167,10 +8174,10 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
                     </div>
                   </div>
                 );
-              } else if(license.enabledModules.includes('poultry')) {
+              } else if(activeModuleList.includes('poultry')) {
                 sections.push(<div key="poultry" style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'16px 18px',display:'flex',gap:10,alignItems:'center'}}><IcoPoultry size={18} color={T.ink4}/><span style={{fontSize:12,color:T.ink4}}>PoultryOS — navigate to this module to load data.</span></div>);
               }
-              if(license.enabledModules.includes('hatchery')&&ps.hatchery){
+              if(activeModuleList.includes('hatchery')&&ps.hatchery){
                 const h=ps.hatchery;
                 const active=h.eggBatches.filter(e=>['Received','Incubating','Candling','Transfer'].includes(e.status));
                 const totalDOC=h.processingRecords.reduce((s,p)=>s+p.packed,0);
@@ -8194,10 +8201,10 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
                     </div>
                   </div>
                 );
-              } else if(license.enabledModules.includes('hatchery')) {
+              } else if(activeModuleList.includes('hatchery')) {
                 sections.push(<div key="hatchery" style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'16px 18px',display:'flex',gap:10,alignItems:'center'}}><IcoHatchery size={18} color={T.ink4}/><span style={{fontSize:12,color:T.ink4}}>HatcheryOS — navigate to this module to load data.</span></div>);
               }
-              if(license.enabledModules.includes('feedmill')&&ps.feedmill){
+              if(activeModuleList.includes('feedmill')&&ps.feedmill){
                 const fm=ps.feedmill;
                 const completed=fm.productionBatches.filter(b=>b.status==='Completed');
                 const totalProd=completed.reduce((s,b)=>s+b.actualQty,0);
@@ -8220,7 +8227,7 @@ function Dashboard({license,activeUser,onLogout,addAudit,auditLog,dataMode,onSwi
                     </div>
                   </div>
                 );
-              } else if(license.enabledModules.includes('feedmill')) {
+              } else if(activeModuleList.includes('feedmill')) {
                 sections.push(<div key="feedmill" style={{background:T.bg0,border:`1px solid ${T.line}`,padding:'16px 18px',display:'flex',gap:10,alignItems:'center'}}><IcoFeedmill size={18} color={T.ink4}/><span style={{fontSize:12,color:T.ink4}}>FeedMillOS — navigate to this module to load data.</span></div>);
               }
               return sections;
@@ -8319,8 +8326,30 @@ function PoultrySuiteAfricaCore(){
   },[screen,loading]);
 
   const handleTCAccept=()=>{setTcAccepted(true);setScreen('tierSelect');};
-  const handleTierSelect=(t)=>{setTier(t);if(t==='enterprise'){setModules(['poultry','hatchery','feedmill']);setScreen('profileReg');}else setScreen('moduleSelect');};
-  const handleModuleSelect=(mods)=>{setModules(mods);setScreen('profileReg');};
+  // A profile already existing means this is a RENEWAL (demo/subscription
+  // expired, user is picking a plan again) rather than first-time setup —
+  // in that case, reuse the existing farm profile/capacity instead of
+  // making them re-enter it, and go straight to payment.
+  const isRenewal=()=>!!(license&&license.profile&&license.profile.farmName);
+  const goToPaymentWithExistingProfile=(t,mods)=>{
+    const lic=buildLicense(t,mods,license.capacity,license.profile,license.pin,{paid:false,deviceId});
+    setLicense(lic);
+    setScreen('paymentGate');
+  };
+  const handleTierSelect=(t)=>{
+    setTier(t);
+    if(t==='enterprise'){
+      const mods=['poultry','hatchery','feedmill'];
+      setModules(mods);
+      if(isRenewal())goToPaymentWithExistingProfile(t,mods);
+      else setScreen('profileReg');
+    }else setScreen('moduleSelect');
+  };
+  const handleModuleSelect=(mods)=>{
+    setModules(mods);
+    if(isRenewal())goToPaymentWithExistingProfile(tier,mods);
+    else setScreen('profileReg');
+  };
   const handleProfileComplete=async(form)=>{try{const lic=buildLicense(tier,modules,form.capacity,form,form.pin);setLicense(lic);const setup={tier,modules,license:lic,pin:form.pin};await storeSetup(setup);addAudit('Profile registered','System');}catch(e){console.warn('profile err',e);}setScreen('paymentGate');};
   const handleStartDemo=async()=>{try{const rec=await startDemo(tier);setDemoRec(rec);addAudit('Demo started','System');}catch(e){console.warn('demo err',e);}setScreen('licenseView');};
   const handleActivateKey=async(paidLic)=>{const lic=migrateLicense(paidLic);await storeLicense(lic);const setup=await getStoredSetup();await storeSetup({...setup,license:lic});setLicense(lic);addAudit('Paid license activated','System');setScreen('licenseView');};
@@ -8349,7 +8378,11 @@ function PoultrySuiteAfricaCore(){
     setDataModeState('demo');
     setSwitchKey(k=>k+1);
   };
-  const handleRenew=()=>setScreen('paymentGate');
+  // Expiry (demo or paid) now routes through plan selection again,
+  // rather than straight back to payment for whatever was originally
+  // chosen — the user re-picks their plan based on what they actually
+  // used during the trial, then pays for that.
+  const handleRenew=()=>setScreen('tierSelect');
   const handleResetSetup=async()=>{try{await window.storage.delete('psa:demo');await window.storage.delete('psa:setup');await window.storage.delete('psa:license');}catch(_){}setDemoRec(null);setLicense(null);setActiveUser(null);setTier(null);setModules([]);setScreen('tierSelect');};
 
   // ─── PRODUCTION FEATURES INTEGRATION ──────────────────
