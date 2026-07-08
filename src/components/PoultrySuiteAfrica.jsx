@@ -2411,7 +2411,11 @@ function ProfileRegScreen({tier,modules,onComplete}){
 }
 
 function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActivateKey,onBack}){
-  const {isPlatformAdmin}=useAuth();
+  const {isPlatformAdmin,user}=useAuth();
+  // Named exception: johnpadeola@agorox.africa should also see the
+  // support-only auto-fill tool, without being a platform admin (which
+  // would otherwise reroute it to the Platform Dashboard by default).
+  const canAutoFillLicense=isPlatformAdmin||user?.email==='johnpadeola@agorox.africa';
   const {t}=useLanguage();
   const td=TIER_DEF[tier],price=license?.costBreakdown?.total||0;
   const daysLeft=demoDaysLeft(demoRec),demoUsed=demoRec&&!isDemoActive(demoRec);
@@ -2470,7 +2474,7 @@ function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActiv
           <Inp label={t('license.licenseKey')} value={licKey} onChange={v=>setLicKey(formatKey(v))} placeholder="PSA-XXXX-XXXX-XXXX-XXXX"/>
           {keyErr&&<Notice type="error" message={keyErr}/>}
           <div style={{display:'flex',gap:8}}><Btn onClick={tryActivate} disabled={licKey.length<23||activating}>{activating?t('license.activating'):t('license.activateLicense')}</Btn><Btn variant="ghost" onClick={()=>setShowKeyEntry(false)}>{t('license.cancel')}</Btn></div>
-          {isPlatformAdmin&&(<div style={{borderTop:`1px solid ${T.line}`,paddingTop:12,marginTop:2}}>
+          {canAutoFillLicense&&(<div style={{borderTop:`1px solid ${T.line}`,paddingTop:12,marginTop:2}}>
             <div style={{fontSize:11,color:T.ink4,marginBottom:8}}>Platform admin only — computes and activates the correct key directly for the tier/profile/capacity currently entered. No typing or pasting.</div>
             <Btn variant="secondary" onClick={()=>{
               setActivating(true);setKeyErr('');
