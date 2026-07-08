@@ -9,7 +9,8 @@ import { AuthShell, Field, Input, Button, Alert, T } from '../auth/pages/_primit
 export default function PairingScreen({ onBound, diag, activeFarm }) {
   const { signOut, role } = useAuth();
   const isOwnerLike = role === 'owner';
-  const [mode, setMode] = useState(isOwnerLike ? 'choose' : 'code');
+  const limitReached = !!(diag?.usage && !diag.usage.error && diag.usage.limit > 0 && diag.usage.used >= diag.usage.limit);
+  const [mode, setMode] = useState(isOwnerLike && !limitReached ? 'choose' : 'code');
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [err, setErr] = useState(null);
@@ -38,29 +39,20 @@ export default function PairingScreen({ onBound, diag, activeFarm }) {
       <div style={{ fontSize: 13, color: T.ink3, marginBottom: 22, lineHeight: 1.5 }}>
         This tablet needs to be registered to your farm before you can use the app.
       </div>
-      <Alert kind="error">{err}</Alert>
-
-      {/* Temporary diagnostics — remove once device setup confirmed working */}
-      {diag && (
-        <div style={{ fontSize: 11, fontFamily: 'monospace', background: '#F3F4F6', border: '1px solid #E5E7EB', padding: '8px 10px', marginBottom: 14, color: '#374151', lineHeight: 1.6, wordBreak: 'break-word' }}>
-          <div><strong>Diagnostics</strong></div>
-          <div>role: {String(role)}</div>
-          <div>ownerLike: {String(isOwnerLike)}</div>
-          <div>farm: {activeFarm?.id ? activeFarm.id.slice(0, 8) + '…' : 'none'}</div>
-          <div>usage: {diag.usage ? `used ${diag.usage.used} / limit ${diag.usage.limit}${diag.usage.error ? ' ERR:' + diag.usage.error : ''}` : '—'}</div>
-          <div>regError: {diag.regError ? String(diag.regError) : 'none'}</div>
-          <div>authError: {diag.authError ? String(diag.authError) : 'none'}</div>
-          <div>step: {diag.step}</div>
-        </div>
+      {limitReached && (
+        <Alert kind="error">
+          Device limit for your subscription tier has been reached ({diag.usage.used}/{diag.usage.limit}). Please deactivate an existing device in Settings, or upgrade your plan, before adding this one.
+        </Alert>
       )}
+      <Alert kind="error">{err}</Alert>
 
       {mode === 'choose' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Field label="Name this device (optional)">
             <Input type="text" value={name} onChange={setName} placeholder="e.g. Office iPad" />
           </Field>
-          <Button onClick={doOwnDevice} disabled={busy}>
-            {busy ? 'Registering…' : 'Register this as my device'}
+          <Button onClick={doOwnDevice} disabled={busy || limitReached}>
+            {busy ? 'Registering…' : limitReached ? 'Device limit reached' : 'Register this as my device'}
           </Button>
           <Button variant="ghost" onClick={() => { setErr(null); setMode('code'); }}>
             I have a pairing code instead

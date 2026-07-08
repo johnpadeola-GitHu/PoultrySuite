@@ -588,6 +588,21 @@ async function registerOwnDevice(env, user, { p_name, p_platform }) {
   const membership = await env.DB.prepare('SELECT farm_id FROM farm_members WHERE user_id = ?').bind(user.id).first();
   if (!membership) return { error: 'No farm membership' };
   const farmId = membership.farm_id;
+  // Enforce the tier's device limit server-side — this was previously only
+  // checked on the frontend, which meant it could be bypassed by anyone
+  // calling this endpoint directly. Same limit calculation farmDeviceUsage
+  // already uses, kept in sync deliberately rather than duplicated logic.
+  const sub = await env.DB.prepare(
+    `SELECT s.max_devices_override, p.max_devices
+     FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+     WHERE s.farm_id = ? ORDER BY s.created_at DESC LIMIT 1`
+  ).bind(farmId).first();
+  const limit = sub?.max_devices_override || sub?.max_devices || 2;
+  const usedRow = await env.DB.prepare('SELECT COUNT(*) as c FROM devices WHERE farm_id = ? AND revoked = 0').bind(farmId).first();
+  const used = usedRow?.c || 0;
+  if (limit > 0 && used >= limit) {
+    return { error: `Device limit for your subscription tier has been reached (${used}/${limit}). Please deactivate an existing device or upgrade your plan.`, limitReached: true };
+  }
   const id = uid();
   const token = uid();
   await env.DB.prepare(
@@ -613,6 +628,19 @@ async function redeemPairingCode(env, user, { p_code, p_platform }) {
     "SELECT * FROM pairing_codes WHERE code = ? AND redeemed = 0 AND expires_at > datetime('now')"
   ).bind(p_code.trim().toUpperCase()).first();
   if (!pc) return { error: 'Invalid or expired pairing code' };
+  // Same server-side device limit enforcement as registerOwnDevice — a
+  // pairing code being valid doesn't mean the farm still has room.
+  const sub = await env.DB.prepare(
+    `SELECT s.max_devices_override, p.max_devices
+     FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+     WHERE s.farm_id = ? ORDER BY s.created_at DESC LIMIT 1`
+  ).bind(pc.farm_id).first();
+  const limit = sub?.max_devices_override || sub?.max_devices || 2;
+  const usedRow = await env.DB.prepare('SELECT COUNT(*) as c FROM devices WHERE farm_id = ? AND revoked = 0').bind(pc.farm_id).first();
+  const used = usedRow?.c || 0;
+  if (limit > 0 && used >= limit) {
+    return { error: `Device limit for this farm's subscription tier has been reached (${used}/${limit}). Ask the farm owner to deactivate a device or upgrade the plan.`, limitReached: true };
+  }
   const devId = uid();
   const token = uid();
   await env.DB.prepare(
