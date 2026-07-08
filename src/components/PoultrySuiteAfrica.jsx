@@ -6,6 +6,7 @@ import DeviceManager from './DeviceManager.jsx';
 import DevicePinManager from './DevicePinManager.jsx';
 import { lockNow } from '../auth/devicePins.js';
 import UpgradeScreen from '../billing/UpgradeScreen.jsx';
+import { useAuth } from '../auth/AuthProvider.jsx';
 const _S={fill:"none",strokeWidth:"1.75",strokeLinecap:"square",strokeLinejoin:"miter"};
 
 // ══════════════════════════════════════════════════════════
@@ -2410,6 +2411,7 @@ function ProfileRegScreen({tier,modules,onComplete}){
 }
 
 function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActivateKey,onBack}){
+  const {isPlatformAdmin}=useAuth();
   const td=TIER_DEF[tier],price=license?.costBreakdown?.total||0;
   const daysLeft=demoDaysLeft(demoRec),demoUsed=demoRec&&!isDemoActive(demoRec);
   const [showKeyEntry,setShowKeyEntry]=useState(false),[licKey,setLicKey]=useState(''),[keyErr,setKeyErr]=useState(''),[activating,setActivating]=useState(false);
@@ -2467,8 +2469,8 @@ function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActiv
           <Inp label="License Key" value={licKey} onChange={v=>setLicKey(formatKey(v))} placeholder="PSA-XXXX-XXXX-XXXX-XXXX"/>
           {keyErr&&<Notice type="error" message={keyErr}/>}
           <div style={{display:'flex',gap:8}}><Btn onClick={tryActivate} disabled={licKey.length<23||activating}>{activating?'Activating...':'Activate License'}</Btn><Btn variant="ghost" onClick={()=>setShowKeyEntry(false)}>Cancel</Btn></div>
-          <div style={{borderTop:`1px solid ${T.line}`,paddingTop:12,marginTop:2}}>
-            <div style={{fontSize:11,color:T.ink4,marginBottom:8}}>For support/internal use — computes and activates the correct key directly for the tier/profile/capacity currently entered. No typing or pasting.</div>
+          {isPlatformAdmin&&(<div style={{borderTop:`1px solid ${T.line}`,paddingTop:12,marginTop:2}}>
+            <div style={{fontSize:11,color:T.ink4,marginBottom:8}}>Platform admin only — computes and activates the correct key directly for the tier/profile/capacity currently entered. No typing or pasting.</div>
             <Btn variant="secondary" onClick={()=>{
               setActivating(true);setKeyErr('');
               const autoKey=computeExpectedKey(tier,modules,license.profile,license.capacity);
@@ -2480,7 +2482,7 @@ function PaymentGateScreen({tier,modules,license,deviceId,demoRec,onDemo,onActiv
                 onActivateKey(result);
               },500);
             }} disabled={activating}>{activating?'Activating...':'Auto-Fill & Activate (support use)'}</Btn>
-          </div>
+          </div>)}
         </div>)}
         <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',color:T.ink4,fontSize:12,fontFamily:'inherit',textAlign:'left',padding:'4px 0'}}>Back to setup</button>
       </div>
