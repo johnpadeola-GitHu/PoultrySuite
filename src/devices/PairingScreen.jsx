@@ -8,7 +8,7 @@ import { AuthShell, Field, Input, Button, Alert, T } from '../auth/pages/_primit
 //   • This is an additional device → enter the pairing code the owner generated
 export default function PairingScreen({ onBound, diag, activeFarm }) {
   const { signOut, role } = useAuth();
-  const isOwnerLike = role === 'farm_owner' || role === 'super_admin';
+  const isOwnerLike = role === 'owner';
   const [mode, setMode] = useState(isOwnerLike ? 'choose' : 'code');
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
