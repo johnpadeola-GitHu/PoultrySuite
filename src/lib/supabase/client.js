@@ -176,6 +176,15 @@ function createQueryBuilder(table) {
         _params.delete('id');
       }
 
+      if (table === 'support_tickets' && _method === 'PATCH' && _params.get('id')) {
+        // updateTicket() calls .update({...}).eq('id', ticketId) — the
+        // Worker route is PUT /api/platform/tickets/:id, not a query param,
+        // so this never actually reached a valid route before.
+        path = `/api/platform/tickets/${_params.get('id')}`;
+        _method = 'PUT';
+        _params.delete('id');
+      }
+
       if (table === 'batches' && _method === 'PUT') {
         path = '/api/batches';
       }

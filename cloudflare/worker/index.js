@@ -250,7 +250,10 @@ export default {
         if (status) { sql += ' WHERE t.status = ?'; params.push(status); }
         sql += ' ORDER BY t.created_at DESC';
         const rows = await env.DB.prepare(sql).bind(...params).all();
-        return json({ data: rows.results }, corsHeaders);
+        // Nest farm to match what PlatformDashboard expects (t.farm?.name) —
+        // same fix pattern already applied to farm-members and subscriptions.
+        const data = rows.results.map(r => ({ ...r, farm: { name: r.farm_name } }));
+        return json({ data }, corsHeaders);
       }
       if (path.match(/^\/api\/platform\/tickets\/[^/]+$/) && method === 'PUT') {
         if (!await isPlatformAdmin(env, user.id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
