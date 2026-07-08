@@ -371,7 +371,7 @@ async function legacyHashPassword(password, salt) {
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-const PBKDF2_ITERATIONS = 210000;
+const PBKDF2_ITERATIONS = 100000; // Cloudflare Workers' WebCrypto caps PBKDF2 at 100,000 iterations
 
 async function pbkdf2Hash(password, salt, iterations = PBKDF2_ITERATIONS) {
   const enc = new TextEncoder();
