@@ -1639,11 +1639,13 @@ function parseLicenseKey(key,deviceId,tier,modules,profile,capacity,pin){
   const expCap=_psaHash('CAP|'+expTier+'|'+expBits+'|'+_psaNormCap(capacity||{}),4);
   if(seg2!==expCap)return null;
   // 4. Expiry+Client check (seg3) — search for valid YYYY-MM within reasonable window
-  //    Window: -2 to +60 months from today (covers up to 5-year license terms + small back-buffer for grace)
+  //    Window: -2 to +1200 months from today (up to 100 years — covers normal
+  //    1-5 year license terms plus effectively-permanent internal/lifetime
+  //    licenses, without needing a separate code path for those).
   const clientNorm=_psaNormClient(profile&&profile.contactName,profile&&profile.farmName);
   const now=new Date();
   let matchedYM=null;
-  for(let monthOffset=-2;monthOffset<=60&&!matchedYM;monthOffset++){
+  for(let monthOffset=-2;monthOffset<=1200&&!matchedYM;monthOffset++){
     const d=new Date(now.getFullYear(),now.getMonth()+monthOffset,1);
     const ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     if(_psaHash('EXP|'+ym+'|'+clientNorm,4)===seg3){matchedYM=ym;break;}
