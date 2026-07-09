@@ -266,6 +266,27 @@ async function rpc(name, params) {
 // Farm-level license snapshot — lets a fresh device/session restore an
 // already-activated license without repeating onboarding. Kept as direct
 // functions rather than forced into the generic rpcMap pattern, since the
+// Downloads the Platform Administrator Guide PDF, which is stored in R2
+// and only ever served after the Worker verifies platform admin status —
+// this is a direct authenticated fetch (not the RPC/table abstraction)
+// since it returns binary content, not JSON. Returns a Blob on success.
+export async function downloadAdminGuide() {
+  const token = getToken();
+  if (!token) return { blob: null, error: 'Not signed in' };
+  try {
+    const res = await fetch(`${API_URL}/api/platform/admin-guide`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { blob: null, error: body.error || `Request failed (${res.status})` };
+    }
+    return { blob: await res.blob(), error: null };
+  } catch (err) {
+    return { blob: null, error: err.message };
+  }
+}
+
 // farm ID needs to be embedded in the URL path, not sent as a body/query
 // param the way other RPCs work.
 export async function getLicenseSnapshot(farmId) {

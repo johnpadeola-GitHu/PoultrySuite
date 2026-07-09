@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { getOverviewStats, listTenants, listSubscriptions, listTickets, updateTicket } from './platformService.js';
+import { downloadAdminGuide } from '../lib/supabase/client.js';
 
 // ── Theme (kept self-contained so this doesn't depend on PoultrySuiteAfrica.jsx's T) ──
 const C = {
@@ -187,6 +188,25 @@ const TABS = [
 
 export default function PlatformDashboard() {
   const { viewAsTenant, viewOwnFarm } = useAuth();
+  const [guideDownloading, setGuideDownloading] = useState(false);
+  const [guideError, setGuideError] = useState(null);
+
+  const handleDownloadGuide = async () => {
+    setGuideDownloading(true);
+    setGuideError(null);
+    const { blob, error } = await downloadAdminGuide();
+    setGuideDownloading(false);
+    if (error || !blob) { setGuideError(error || 'Download failed'); return; }
+    // Trigger a normal browser download from the fetched blob.
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'PoultrySuite-Platform-Admin-Guide.pdf';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
   const [tab, setTab] = useState('overview');
   const [stats, setStats] = useState(null);
   const [tenants, setTenants] = useState([]);
@@ -217,10 +237,20 @@ export default function PlatformDashboard() {
           <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 }}>AgoroX Technologies</div>
           <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: -0.3 }}>Platform Dashboard</div>
         </div>
-        <button onClick={viewOwnFarm} style={{ height: 34, padding: '0 14px', background: 'transparent', color: C.accent, border: `1.5px solid ${C.accent}`, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
-          Farm View
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={handleDownloadGuide} disabled={guideDownloading} style={{ height: 34, padding: '0 14px', background: 'transparent', color: C.ink2, border: `1.5px solid ${C.line}`, cursor: guideDownloading ? 'wait' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
+            {guideDownloading ? 'Downloading…' : 'Download Admin Guide'}
+          </button>
+          <button onClick={viewOwnFarm} style={{ height: 34, padding: '0 14px', background: 'transparent', color: C.accent, border: `1.5px solid ${C.accent}`, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
+            Farm View
+          </button>
+        </div>
       </div>
+      {guideError && (
+        <div style={{ padding: '10px 24px', background: C.errBg, color: C.err, fontSize: 12 }}>
+          Could not download the guide: {guideError}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${C.line}`, padding: '0 24px', overflowX: 'auto' }}>
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}

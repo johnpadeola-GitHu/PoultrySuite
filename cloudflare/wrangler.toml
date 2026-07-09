@@ -11,3 +11,7 @@ CORS_ORIGIN = "https://poultrysuite.agorox.africa"
 binding = "DB"
 database_name = "poultrysuite-db"
 database_id = "9f0ae947-5094-4dc1-8749-6058d4303b51"
+
+[[r2_buckets]]
+binding = "ADMIN_DOCS"
+bucket_name = "poultrysuite-admin-docs"

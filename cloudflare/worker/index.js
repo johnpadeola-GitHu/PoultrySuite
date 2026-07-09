@@ -231,6 +231,19 @@ export default {
       // Platform admin
       if (path === '/api/platform/is-admin' && method === 'GET')
         return json({ isAdmin: await isPlatformAdmin(env, user.id) }, corsHeaders);
+      // Admin guide PDF — stored in R2, served only to verified platform
+      // admins. Updating the guide later is just re-uploading the object
+      // to R2 (wrangler r2 object put); no Worker code change or redeploy
+      // needed for content updates, only for changes to this route itself.
+      if (path === '/api/platform/admin-guide' && method === 'GET') {
+        if (!await isPlatformAdmin(env, user.id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
+        const obj = await env.ADMIN_DOCS.get('platform-admin-guide.pdf');
+        if (!obj) return json({ error: 'Guide not found' }, corsHeaders, 404);
+        const respHeaders = new Headers(corsHeaders);
+        respHeaders.set('Content-Type', 'application/pdf');
+        respHeaders.set('Content-Disposition', 'attachment; filename="PoultrySuite-Platform-Admin-Guide.pdf"');
+        return new Response(obj.body, { headers: respHeaders });
+      }
       if (path === '/api/platform/stats' && method === 'GET') {
         if (!await isPlatformAdmin(env, user.id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         return json(await platformStats(env), corsHeaders);
