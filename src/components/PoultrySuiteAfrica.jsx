@@ -2308,7 +2308,7 @@ function ProfileRegScreen({tier,modules,onComplete}){
   const {setCountry: setCurrencyCountry, currency, currencyCode}=useCurrency();
   const allMods=tier==='enterprise'?['poultry','hatchery','feedmill']:modules;
   const [step,setStep]=useState(0);
-  const [form,setForm]=useState({farmName:'',contactName:'',phone:'',email:'',emailConfirm:'',city:'',location:'',country:'',state:'',lga:'',regNo:'',capacity:{poultry:'',hatchery:'',feedmill:''},role:ROLES[0]});
+  const [form,setForm]=useState({farmName:'',contactName:'',phone:'',email:'',city:'',location:'',country:'',state:'',lga:'',regNo:'',capacity:{poultry:'',hatchery:'',feedmill:''},role:ROLES[0]});
   const [pinPhase,setPinPhase]=useState('set');
   const [pinFirst,setPinFirst]=useState('');
   const [pinErr,setPinErr]=useState('');
@@ -2317,12 +2317,10 @@ function ProfileRegScreen({tier,modules,onComplete}){
   const setCap=(m,v)=>setForm(f=>({...f,capacity:{...f.capacity,[m]:v}}));
   const phoneV=validatePhone(form.phone,form.country);
   const emailV=validateEmail(form.email);
-  const emailMatchOk=form.email===form.emailConfirm;
-  const emailConfirmFilled=form.emailConfirm.length>0;
   const step0ok=form.farmName.trim().length>=2&&form.contactName.trim().length>=2&&phoneV.ok&&emailV.ok&&form.city.trim().length>=2&&form.location.trim()&&form.country&&form.state&&form.lga;
   const step1ok=allMods.every(m=>Number(form.capacity[m])>0);
   const handlePin=(pin)=>{if(pinPhase==='set'){setPinFirst(pin);setPinPhase('confirm');setPinErr('');}else{if(pin===pinFirst){onComplete({...form,pin});}else{setPinErr('PINs do not match. Please try again.');setPinPhase('set');setPinFirst('');}}};
-  const touchAll=()=>setTouched({farmName:true,contactName:true,phone:true,email:true,emailConfirm:true,city:true,location:true,country:true,state:true,lga:true});
+  const touchAll=()=>setTouched({farmName:true,contactName:true,phone:true,email:true,city:true,location:true,country:true,state:true,lga:true});
   const stepLabels=['Organisation','Capacity','Role & PIN'];
   return(
     <PageShell maxWidth={520}><div style={{marginBottom:32}}><div style={{fontSize:18,fontWeight:700,color:T.ink,letterSpacing:-0.3,lineHeight:1.2}}>PoultrySuite<span style={{color:T.ink3}}> Africa</span></div><div style={{fontSize:11,fontWeight:600,color:T.ink4,marginTop:6,letterSpacing:1.4,textTransform:'uppercase',lineHeight:1}}>Registration</div></div>
@@ -2356,12 +2354,6 @@ function ProfileRegScreen({tier,modules,onComplete}){
               <Inp label="Email Address *" value={form.email} onChange={v=>setF('email',v)} placeholder="contact@yourfarm.com" type="email"/>
               {touched.email&&!emailV.ok&&<FieldError msg={emailV.msg}/>}
             </div>
-            {form.email.length>0&&(
-              <div>
-                <Inp label="Confirm Email *" value={form.emailConfirm} onChange={v=>setF('emailConfirm',v)} placeholder="Re-enter email" type="email"/>
-                {touched.emailConfirm&&form.emailConfirm&&!emailMatchOk&&<FieldError msg="Email addresses do not match."/>}
-              </div>
-            )}
             <Sel label="Country *" value={form.country} onChange={v=>{
               setF('country',v);setF('state','');setF('lga','');
               // Auto-switch the active currency to match the selected country

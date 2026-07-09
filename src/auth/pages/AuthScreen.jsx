@@ -8,11 +8,12 @@ export default function AuthScreen() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [err, setErr] = useState(null);
   const [ok, setOk] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const reset = () => { setErr(null); setOk(null); };
+  const reset = () => { setErr(null); setOk(null); setConfirmPassword(''); };
 
   const submit = async (e) => {
     e?.preventDefault();
@@ -33,6 +34,9 @@ export default function AuthScreen() {
     }
     if (mode === 'signup' && password.length < 8) {
       setErr('Password must be at least 8 characters.'); return;
+    }
+    if (mode === 'signup' && password !== confirmPassword) {
+      setErr('Passwords do not match.'); return;
     }
     setBusy(true);
     const r = mode === 'signup'
@@ -60,6 +64,9 @@ export default function AuthScreen() {
         <Field label="Email"><Input type="email" value={email} onChange={setEmail} autoComplete="email" /></Field>
         {mode !== 'forgot' && (
           <Field label="Password"><Input type="password" value={password} onChange={setPassword} autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} /></Field>
+        )}
+        {mode === 'signup' && (
+          <Field label="Confirm password"><Input type="password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" /></Field>
         )}
         {mode === 'signin' && (
           <div style={{ marginBottom: 16, textAlign: 'right' }}>
