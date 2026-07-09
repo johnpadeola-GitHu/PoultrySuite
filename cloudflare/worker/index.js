@@ -271,6 +271,54 @@ export default {
         }));
         return json({ data }, corsHeaders);
       }
+      // Members of a specific farm, for the platform admin's delete-user UI.
+      if (path.match(/^\/api\/platform\/farms\/[^/]+\/members$/) && method === 'GET') {
+        if (!await isPlatformAdmin(env, user.id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
+        const farmId = path.split('/')[4];
+        const rows = await env.DB.prepare(
+          `SELECT u.id, u.email, fm.role FROM farm_members fm JOIN users u ON u.id = fm.user_id WHERE fm.farm_id = ? ORDER BY fm.role, u.email`
+        ).bind(farmId).all();
+        return json({ data: rows.results }, corsHeaders);
+      }
+      // Delete a user account entirely — the farm(s) they solely own are
+      // fully removed with all associated data; if they share a farm with
+      // other members, only their own membership is removed, leaving the
+      // farm intact for its remaining members. Platform admin accounts can
+      // never be deleted through this route, and an admin cannot delete
+      // their own account here — both are deliberate safeguards against
+      // accidental lockout.
+      if (path.match(/^\/api\/platform\/users\/[^/]+$/) && method === 'DELETE') {
+        if (!await isPlatformAdmin(env, user.id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
+        const targetId = path.split('/')[4];
+        if (targetId === user.id) return json({ error: 'You cannot delete your own account.' }, corsHeaders, 400);
+        const targetIsAdmin = await env.DB.prepare('SELECT 1 FROM platform_admins WHERE user_id = ?').bind(targetId).first();
+        if (targetIsAdmin) return json({ error: 'Platform administrator accounts cannot be deleted through this tool.' }, corsHeaders, 400);
+        const targetUser = await env.DB.prepare('SELECT id, email FROM users WHERE id = ?').bind(targetId).first();
+        if (!targetUser) return json({ error: 'User not found' }, corsHeaders, 404);
+
+        const memberships = await env.DB.prepare('SELECT farm_id FROM farm_members WHERE user_id = ?').bind(targetId).all();
+        for (const { farm_id } of memberships.results) {
+          const otherMembers = await env.DB.prepare('SELECT COUNT(*) as c FROM farm_members WHERE farm_id = ? AND user_id != ?').bind(farm_id, targetId).first();
+          if (otherMembers.c === 0) {
+            // Sole member — the whole farm and everything in it goes.
+            await env.DB.prepare('DELETE FROM farm_records WHERE farm_id = ?').bind(farm_id).run();
+            await env.DB.prepare('DELETE FROM devices WHERE farm_id = ?').bind(farm_id).run();
+            await env.DB.prepare('DELETE FROM subscriptions WHERE farm_id = ?').bind(farm_id).run();
+            await env.DB.prepare('DELETE FROM batches WHERE farm_id = ?').bind(farm_id).run();
+            await env.DB.prepare('DELETE FROM pairing_codes WHERE farm_id = ?').bind(farm_id).run();
+            await env.DB.prepare('DELETE FROM payments WHERE farm_id = ?').bind(farm_id).run();
+            await env.DB.prepare('DELETE FROM support_tickets WHERE farm_id = ?').bind(farm_id).run();
+            await env.DB.prepare('DELETE FROM farm_members WHERE farm_id = ?').bind(farm_id).run();
+            await env.DB.prepare('DELETE FROM farms WHERE id = ?').bind(farm_id).run();
+          } else {
+            // Shared farm — just remove this user's own access to it.
+            await env.DB.prepare('DELETE FROM farm_members WHERE farm_id = ? AND user_id = ?').bind(farm_id, targetId).run();
+          }
+        }
+        await env.DB.prepare('DELETE FROM profiles WHERE id = ?').bind(targetId).run();
+        await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(targetId).run();
+        return json({ ok: true, deletedEmail: targetUser.email }, corsHeaders);
+      }
       if (path === '/api/platform/tickets' && method === 'GET') {
         if (!await isPlatformAdmin(env, user.id)) return json({ error: 'Forbidden' }, corsHeaders, 403);
         const status = url.searchParams.get('status');

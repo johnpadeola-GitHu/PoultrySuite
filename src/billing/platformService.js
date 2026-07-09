@@ -4,11 +4,24 @@
 // (see supabase/010_platform_admin.sql), so a non-admin caller simply
 // gets an empty result, not an error.
 // ─────────────────────────────────────────────────────────────────────
-import { supabase, requireSupabase } from '../lib/supabase/client.js';
+import { supabase, requireSupabase, listFarmMembers as _listFarmMembers, deleteUser as _deleteUser } from '../lib/supabase/client.js';
 
 function friendly(err) {
   if (!err) return null;
   return err.message || String(err);
+}
+
+// Members of a specific farm, and permanent user deletion — for the
+// Tenants tab's user-management UI. Thin wrappers around the shim's
+// direct-fetch functions, kept here for consistency with everything else
+// in this file.
+export async function listFarmMembers(farmId) {
+  const { data, error } = await _listFarmMembers(farmId);
+  return { members: data, error: friendly(error) };
+}
+export async function deleteUser(userId) {
+  const { ok, error } = await _deleteUser(userId);
+  return { ok, error: friendly(error) };
 }
 
 // Platform-wide KPI numbers for the Overview screen.

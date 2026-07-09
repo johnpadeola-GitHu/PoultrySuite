@@ -270,6 +270,24 @@ async function rpc(name, params) {
 // and only ever served after the Worker verifies platform admin status —
 // this is a direct authenticated fetch (not the RPC/table abstraction)
 // since it returns binary content, not JSON. Returns a Blob on success.
+// Members of a specific farm — used by the platform admin's delete-user
+// UI. Direct fetch (not the rpcMap pattern) since the farm ID needs to be
+// embedded in the URL path.
+export async function listFarmMembers(farmId) {
+  const res = await apiFetch(`/api/platform/farms/${farmId}/members`, { method: 'GET' });
+  if (res.error) return { data: [], error: res.error };
+  return { data: res.data || [], error: null };
+}
+
+// Permanently deletes a user account (and, per the Worker's own logic,
+// any farm they solely own). Same direct-fetch pattern, since the user ID
+// is in the URL path, not a body/query param.
+export async function deleteUser(userId) {
+  const res = await apiFetch(`/api/platform/users/${userId}`, { method: 'DELETE' });
+  if (res.error) return { ok: false, error: res.error };
+  return { ok: true, error: null };
+}
+
 export async function downloadAdminGuide() {
   const token = getToken();
   if (!token) return { blob: null, error: 'Not signed in' };

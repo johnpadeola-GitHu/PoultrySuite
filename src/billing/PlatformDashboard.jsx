@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../auth/AuthProvider.jsx';
-import { getOverviewStats, listTenants, listSubscriptions, listTickets, updateTicket } from './platformService.js';
+import { getOverviewStats, listTenants, listSubscriptions, listTickets, updateTicket, listFarmMembers, deleteUser } from './platformService.js';
 import { downloadAdminGuide } from '../lib/supabase/client.js';
 
 // ── Theme (kept self-contained so this doesn't depend on PoultrySuiteAfrica.jsx's T) ──
@@ -80,31 +80,94 @@ function PlatformOverview({ stats, tickets }) {
 // ── Tenants ───────────────────────────────────────────────────────────
 function PlatformTenants({ tenants, onViewAsTenant }) {
   const [q, setQ] = useState('');
+  const [expandedFarm, setExpandedFarm] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [actionError, setActionError] = useState(null);
   const filtered = tenants.filter((t) => (t.farm_name || '').toLowerCase().includes(q.toLowerCase()));
+
+  const toggleMembers = async (farmId) => {
+    setActionError(null);
+    if (expandedFarm === farmId) { setExpandedFarm(null); return; }
+    setExpandedFarm(farmId);
+    setMembersLoading(true);
+    const { members: m, error } = await listFarmMembers(farmId);
+    setMembersLoading(false);
+    if (error) { setActionError(error); setMembers([]); return; }
+    setMembers(m);
+  };
+
+  const handleDelete = async (member, farmId) => {
+    const sure = window.confirm(`Delete ${member.email}? This permanently removes their account and, if they are the sole member of their farm, that farm and all its data. This cannot be undone.`);
+    if (!sure) return;
+    setDeletingId(member.id);
+    setActionError(null);
+    const { ok, error } = await deleteUser(member.id);
+    setDeletingId(null);
+    if (!ok) { setActionError(error); return; }
+    // Refresh the member list for this farm after a successful delete.
+    const { members: m } = await listFarmMembers(farmId);
+    setMembers(m || []);
+  };
+
   return (
     <div>
       <input
         value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tenants…"
         style={{ width: '100%', maxWidth: 320, padding: '9px 12px', background: C.surface, border: `1px solid ${C.line}`, color: C.ink, fontSize: 13, marginBottom: 16, fontFamily: 'inherit', boxSizing: 'border-box' }}
       />
+      {actionError && (
+        <div style={{ padding: '10px 14px', background: C.errBg, color: C.err, fontSize: 12, marginBottom: 12 }}>{actionError}</div>
+      )}
       {filtered.length === 0 ? (
         <div style={{ fontSize: 13, color: C.ink3 }}>No tenants found.</div>
       ) : (
         <div style={{ border: `1px solid ${C.line}` }}>
           {filtered.map((t, i) => (
-            <div key={t.farm_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderTop: i > 0 ? `1px solid ${C.line}` : 'none', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{t.farm_name}</div>
-                <div style={{ fontSize: 11, color: C.ink3, marginTop: 2 }}>
-                  {t.plan_name || 'No plan'} · {t.member_count} member{t.member_count === 1 ? '' : 's'} · {t.device_count} device{t.device_count === 1 ? '' : 's'}
-                  {t.open_tickets > 0 && <span style={{ color: C.err }}> · {t.open_tickets} open ticket{t.open_tickets === 1 ? '' : 's'}</span>}
+            <div key={t.farm_id} style={{ borderTop: i > 0 ? `1px solid ${C.line}` : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', gap: 12, flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>{t.farm_name}</div>
+                  <div style={{ fontSize: 11, color: C.ink3, marginTop: 2 }}>
+                    {t.plan_name || 'No plan'} · {t.member_count} member{t.member_count === 1 ? '' : 's'} · {t.device_count} device{t.device_count === 1 ? '' : 's'}
+                    {t.open_tickets > 0 && <span style={{ color: C.err }}> · {t.open_tickets} open ticket{t.open_tickets === 1 ? '' : 's'}</span>}
+                  </div>
                 </div>
+                <StatusPill status={t.subscription_status} />
+                <div style={{ fontSize: 11, color: C.ink3, minWidth: 90, textAlign: 'right' }}>{t.subscription_period_end ? `renews ${fmtDate(t.subscription_period_end)}` : '—'}</div>
+                <button onClick={() => toggleMembers(t.farm_id)} style={{ background: 'transparent', border: `1px solid ${C.line}`, color: C.ink2, fontSize: 12, fontWeight: 600, padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  {expandedFarm === t.farm_id ? 'Hide Users' : 'Manage Users'}
+                </button>
+                <button onClick={() => onViewAsTenant(t)} style={{ background: 'transparent', border: `1px solid ${C.line}`, color: C.ink2, fontSize: 12, fontWeight: 600, padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  View as tenant →
+                </button>
               </div>
-              <StatusPill status={t.subscription_status} />
-              <div style={{ fontSize: 11, color: C.ink3, minWidth: 90, textAlign: 'right' }}>{t.subscription_period_end ? `renews ${fmtDate(t.subscription_period_end)}` : '—'}</div>
-              <button onClick={() => onViewAsTenant(t)} style={{ background: 'transparent', border: `1px solid ${C.line}`, color: C.ink2, fontSize: 12, fontWeight: 600, padding: '8px 14px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-                View as tenant →
-              </button>
+              {expandedFarm === t.farm_id && (
+                <div style={{ padding: '4px 16px 16px 16px', background: C.surface }}>
+                  {membersLoading ? (
+                    <div style={{ fontSize: 12, color: C.ink3, padding: '8px 0' }}>Loading users…</div>
+                  ) : members.length === 0 ? (
+                    <div style={{ fontSize: 12, color: C.ink3, padding: '8px 0' }}>No users found for this farm.</div>
+                  ) : (
+                    members.map((m) => (
+                      <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderTop: `1px solid ${C.line}` }}>
+                        <div>
+                          <span style={{ fontSize: 13, color: C.ink }}>{m.email}</span>
+                          <span style={{ fontSize: 11, color: C.ink3, marginLeft: 8 }}>({m.role})</span>
+                        </div>
+                        <button
+                          onClick={() => handleDelete(m, t.farm_id)}
+                          disabled={deletingId === m.id}
+                          style={{ background: 'transparent', border: `1px solid ${C.err}`, color: C.err, fontSize: 11, fontWeight: 700, padding: '5px 10px', cursor: deletingId === m.id ? 'wait' : 'pointer', fontFamily: 'inherit' }}
+                        >
+                          {deletingId === m.id ? 'Deleting…' : 'Delete User'}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -187,7 +250,7 @@ const TABS = [
 ];
 
 export default function PlatformDashboard() {
-  const { viewAsTenant, viewOwnFarm } = useAuth();
+  const { viewAsTenant, viewOwnFarm, signOut } = useAuth();
   const [guideDownloading, setGuideDownloading] = useState(false);
   const [guideError, setGuideError] = useState(null);
 
@@ -243,6 +306,9 @@ export default function PlatformDashboard() {
           </button>
           <button onClick={viewOwnFarm} style={{ height: 34, padding: '0 14px', background: 'transparent', color: C.accent, border: `1.5px solid ${C.accent}`, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
             Farm View
+          </button>
+          <button onClick={signOut} style={{ height: 34, padding: '0 14px', background: 'transparent', color: C.err, border: `1.5px solid ${C.err}`, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700 }}>
+            Sign Out
           </button>
         </div>
       </div>
